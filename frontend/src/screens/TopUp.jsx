@@ -10,7 +10,7 @@ import { TopupStatus } from './topup/TopupStatus.jsx';
 export function TopUp({ userId, resumeIntentId, setError, onExit, onComplete }) {
   const [step, setStep] = useState(resumeIntentId ? 'status' : 'amount');
   const [amount, setAmount] = useState(0);
-  const [session, setSession] = useState(null);
+  const [link, setLink] = useState(null);
   const [intentId, setIntentId] = useState(resumeIntentId ?? null);
 
   if (step === 'amount') {
@@ -19,9 +19,9 @@ export function TopUp({ userId, resumeIntentId, setError, onExit, onComplete }) 
         userId={userId}
         setError={setError}
         onBack={onExit}
-        onIntentCreated={({ intentId: id, session: s, amount: a }) => {
+        onIntentCreated={({ intentId: id, link: l, amount: a }) => {
           setIntentId(id);
-          setSession(s);
+          setLink(l);
           setAmount(a);
           setStep('authorize');
         }}
@@ -30,9 +30,7 @@ export function TopUp({ userId, resumeIntentId, setError, onExit, onComplete }) 
   }
 
   if (step === 'authorize') {
-    return (
-      <AuthorizeTopup amount={amount} intentId={intentId} session={session} onBack={() => setStep('amount')} />
-    );
+    return <AuthorizeTopup amount={amount} intentId={intentId} link={link} onBack={() => setStep('amount')} />;
   }
 
   return <TopupStatus intentId={intentId} userId={userId} setError={setError} onDone={onComplete} />;

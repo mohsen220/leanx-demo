@@ -23,9 +23,9 @@ async function leanRequest(path, options = {}) {
 }
 
 export const leanPayApi = {
-  // Creates a Payment Intent against Falcon's own collection account, plus a
-  // Lean-hosted Session for it — the session_url is where the customer
-  // actually authorizes, via a full-page redirect (not an embedded modal).
+  // Creates a single-use Lean Payment Link against Falcon's own collection
+  // account — `link` is a real Lean-hosted checkout URL the customer is
+  // fully redirected to (not an embedded modal).
   createTopupIntent: (userId, amount) =>
     leanRequest('/api/lean/topups', { method: 'POST', body: JSON.stringify({ userId, amount }) }),
 

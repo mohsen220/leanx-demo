@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { leanApiFetch } from '../leanApi.js';
-import { db } from '../db.js';
+import { db, newId } from '../db.js';
 
 export const leanPayRouter = Router();
 
@@ -51,23 +51,26 @@ async function ensureFalconDestination(user, customerId) {
 }
 
 // Must be added to this Lean app's allowed redirect URLs in the Dashboard
-// (Development → Integration settings) — Lean rejects session creation
+// (Development → Integration settings) — Lean rejects link creation
 // outright otherwise ("Redirect URL ... is not allowed for application ...").
-// Kept fixed and param-free rather than baking the intent id into it: a
+// Kept fixed and param-free rather than baking the link id into it: a
 // redirect whitelist commonly matches the URL exactly, so a per-request
 // query string would never match a pre-registered value. Which top-up is
 // pending is tracked in the browser's own localStorage instead (see
 // screens/topup/AuthorizeTopup.jsx), not carried through the redirect.
 const TOPUP_REDIRECT_URL = `${process.env.FRONTEND_ORIGIN ?? 'http://localhost:5174'}/`;
 
-// Creates a Payment Intent against Falcon's own destination, then a Lean
-// Session for it. The session_url is a real, full-page redirect to Lean's
-// own hosted authorization flow — NOT an embedded modal. Open Finance bank
-// consent screens generally refuse to render inside a third-party iframe,
-// which is why an earlier version of this route (using the LinkSDK's
-// embedded pay() call) failed silently: every intent it created shows an
-// empty payments[] array, meaning the attempt never even reached Lean's
-// backend as a real authorization.
+// Uses Lean's Payment Links API rather than Sessions (POST /sessions/v1 +
+// a pre-created Payment Intent) — that combination returned an opaque,
+// unmapped 400 ({status: null, message: "Bad Request"}) on this app no
+// matter what was tried, confirmed via a from-scratch reproduction outside
+// this codebase entirely. Payment Links create everything Lean-side in one
+// call and hand back a real hosted checkout URL, verified working directly
+// against this same sandbox app.
+//
+// max_usages: 1 makes this a single-use link (Payment Links default to
+// reusable, meant for merchant checkout pages) — right for a one-off
+// top-up, wrong for anything meant to be shared.
 leanPayRouter.post('/lean/topups', async (req, res, next) => {
   try {
     const { userId, amount } = req.body;
@@ -78,65 +81,68 @@ leanPayRouter.post('/lean/topups', async (req, res, next) => {
     const customerId = await ensureLeanCustomer(user);
     const destinationId = await ensureFalconDestination(user, customerId);
 
-    const intent = await leanApiFetch('/payments/v1/intents', {
+    const link = await leanApiFetch('/payment-links/v1', {
       method: 'POST',
       body: JSON.stringify({
         customer_id: customerId,
-        amount,
-        currency: 'AED',
-        payment_destination_id: destinationId,
-        purpose_code: 'GDS',
-        // Lean caps this at 32 chars.
-        description: 'Falcon Exchange top-up',
-      }),
-    });
-
-    const session = await leanApiFetch('/sessions/v1', {
-      method: 'POST',
-      body: JSON.stringify({
-        customer_id: customerId,
-        flow: { type: 'PAY', payload: { payment_intent_id: intent.payment_intent_id } },
+        max_usages: 1,
         redirect_url: TOPUP_REDIRECT_URL,
+        payment_details: {
+          reference: `falcon-topup-${newId()}`,
+          currency: 'AED',
+          amount: Number(amount),
+          destination_id: destinationId,
+        },
       }),
     });
 
-    res.json({ intent, session });
+    res.json({ linkId: link.id, link: link.link });
   } catch (err) {
     next(err);
   }
 });
 
-// Polled by the frontend after pay() closes, since bank authorization
-// settles asynchronously (PENDING_WITH_BANK → ACCEPTED_BY_BANK | FAILED).
+// Polled by the frontend after the customer returns from Lean's hosted
+// checkout page, since bank authorization settles asynchronously. A usage
+// only appears once the customer actually completes (or fails) the flow —
+// no usages yet just means still on Lean's page, not an error.
+// usage_status: STARTED (awaiting bank) → PAYMENT_CREATED (check
+// payment_status: PENDING_WITH_BANK | ACCEPTED_BY_BANK) | FAILED | EXPIRED.
 // The moment it first sees ACCEPTED_BY_BANK, Falcon's ledger is credited —
-// guarded so a re-poll of an already-credited intent never double-credits.
+// guarded so a re-poll of an already-credited link never double-credits.
 leanPayRouter.get('/lean/topups/:id', async (req, res, next) => {
   try {
     const { userId } = req.query;
-    const intent = await leanApiFetch(`/payments/v1/intents/${req.params.id}`);
-    const latestPayment = intent.payments?.[intent.payments.length - 1];
-    const status = latestPayment?.status ?? 'PENDING_WITH_BANK';
+    const linkId = req.params.id;
 
-    if (status === 'ACCEPTED_BY_BANK' && userId && !db.transactions.get(req.params.id)) {
+    const link = await leanApiFetch(`/payment-links/v1/${linkId}`);
+    const { content: usages = [] } = await leanApiFetch(`/payment-links/v1/${linkId}/usages?size=10`);
+    const usage = usages[0];
+
+    let status = 'PENDING_WITH_BANK';
+    if (usage?.usage_status === 'PAYMENT_CREATED') status = usage.payment_status ?? 'PENDING_WITH_BANK';
+    else if (usage?.usage_status === 'FAILED' || usage?.usage_status === 'EXPIRED') status = 'FAILED';
+
+    if (status === 'ACCEPTED_BY_BANK' && userId && !db.transactions.get(linkId)) {
       const user = db.users.get(userId);
       db.transactions.insert({
-        id: req.params.id,
+        id: linkId,
         type: 'topup',
         userId,
-        amount: Number(intent.amount),
-        currency: intent.currency ?? 'AED',
+        amount: Number(link.payment_details.amount),
+        currency: link.payment_details.currency ?? 'AED',
         status: 'succeeded',
-        createdAt: intent.created_at ?? new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
       });
       if (user) {
         db.users.update(user.id, {
-          balance: Math.round((user.balance + Number(intent.amount)) * 100) / 100,
+          balance: Math.round((user.balance + Number(link.payment_details.amount)) * 100) / 100,
         });
       }
     }
 
-    res.json({ ...intent, status });
+    res.json({ amount: link.payment_details.amount, currency: link.payment_details.currency ?? 'AED', status });
   } catch (err) {
     next(err);
   }

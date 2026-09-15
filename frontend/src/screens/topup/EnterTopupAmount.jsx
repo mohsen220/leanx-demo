@@ -5,8 +5,8 @@ import { BackIcon } from '../../icons.jsx';
 
 const QUICK_AMOUNTS = ['100', '250', '500', '1000'];
 
-// Creates the Payment Intent and its Lean-hosted Session up front — the
-// Authorize screen just needs the session_url to redirect to.
+// Creates the Lean Payment Link up front — the Authorize screen just needs
+// its hosted checkout URL to redirect to.
 export function EnterTopupAmount({ userId, setError, onBack, onIntentCreated }) {
   const [amount, setAmount] = useState('500');
   const [loading, setLoading] = useState(false);
@@ -14,8 +14,8 @@ export function EnterTopupAmount({ userId, setError, onBack, onIntentCreated }) 
   const submit = async () => {
     setLoading(true);
     try {
-      const { intent, session } = await leanPayApi.createTopupIntent(userId, Number(amount));
-      onIntentCreated({ intentId: intent.payment_intent_id, session, amount: Number(amount) });
+      const { linkId, link } = await leanPayApi.createTopupIntent(userId, Number(amount));
+      onIntentCreated({ intentId: linkId, link, amount: Number(amount) });
     } catch (err) {
       setError(err.message);
     } finally {

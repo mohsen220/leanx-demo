@@ -3,16 +3,15 @@ import { BackIcon } from '../../icons.jsx';
 
 const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-// This leaves the app for real — Lean's own hosted page, where the customer
-// picks their bank and authorizes with them directly. That's a genuine
-// full-page redirect, not a modal: Open Finance bank consent screens
-// generally refuse to render inside a third-party iframe. The pending
-// intent id is remembered locally so the app can resume tracking it the
-// moment the customer is redirected back.
-export function AuthorizeTopup({ amount, intentId, session, onBack }) {
+// This leaves the app for real — Lean's own hosted checkout page, where the
+// customer picks their bank and authorizes with them directly. That's a
+// genuine full-page redirect, not a modal. The pending payment link id is
+// remembered locally so the app can resume tracking it the moment the
+// customer is redirected back.
+export function AuthorizeTopup({ amount, intentId, link, onBack }) {
   const goToLean = () => {
     localStorage.setItem('falcon_pending_topup', intentId);
-    window.location.href = session.session_url;
+    window.location.href = link;
   };
 
   return (

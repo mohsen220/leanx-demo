@@ -114,6 +114,26 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
   }
 });
 
+// Called when Lean.authorizeConsent()'s callback reports anything other
+// than a clean cancel — a genuine authorization attempt (e.g. a bank login
+// error, or the sandbox's QR/passwordless path erroring out) leaves the
+// consent unable to accept a second attempt: Lean's own
+// POST /consents/{id}/authorization returns 409 Conflict on retry, since an
+// attempt was already registered against it. Clearing the cached id here
+// means the next top-up creates a genuinely fresh, untouched consent
+// instead of retrying one that's already burned.
+leanAofRouter.post('/lean/aof/consent/abandon', async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+    const user = db.users.get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    db.users.update(user.id, { aofConsentId: null, aofConsentStatus: null });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Called right after Lean.authorizeConsent()'s callback reports SUCCESS —
 // marks the consent AUTHORISED locally (so every future top-up takes the
 // instant path above) and immediately charges it for this top-up's amount.

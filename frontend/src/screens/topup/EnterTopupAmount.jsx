@@ -62,7 +62,15 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
           if (payload.status !== 'SUCCESS') {
             localStorage.removeItem('falcon_pending_aof_charge');
             setLoading(false);
-            if (payload.status !== 'CANCELLED') setError(payload.message ?? `Authorization ${payload.status}`);
+            if (payload.status !== 'CANCELLED') {
+              setError(payload.message ?? `Authorization ${payload.status}`);
+              // A genuine (non-cancelled) failed attempt leaves this consent
+              // unable to accept a retry — Lean rejects a second
+              // authorization attempt against it with 409 Conflict. Abandon
+              // it so the next top-up creates a fresh one instead of
+              // silently failing the same way again.
+              leanAofApi.abandonConsent(userId).catch(() => {});
+            }
             return;
           }
           try {

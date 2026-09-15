@@ -33,4 +33,11 @@ export const leanAofApi = {
     leanRequest('/api/lean/aof/topup/charge', { method: 'POST', body: JSON.stringify({ userId, amount }) }),
 
   getTopup: (paymentId, userId) => leanRequest(`/api/lean/aof/topup/${paymentId}?userId=${userId}`),
+
+  // Called when authorization fails for any reason other than a clean
+  // cancel — a genuine attempt leaves the consent unable to accept a retry
+  // (Lean rejects a second authorization attempt against the same consent
+  // with 409 Conflict), so the next top-up needs a fresh one instead.
+  abandonConsent: (userId) =>
+    leanRequest('/api/lean/aof/consent/abandon', { method: 'POST', body: JSON.stringify({ userId }) }),
 };

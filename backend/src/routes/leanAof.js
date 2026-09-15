@@ -35,19 +35,6 @@ async function createAofConsent(user, customerId, destinationId) {
   return consent;
 }
 
-// A consent is linked once and reused for every future top-up — it's
-// deliberately NOT tied to any single amount (Lean's `immediate_payment`
-// option can fuse consent + a first charge into one call, but that only
-// helps a brand new consent; skipping it keeps this function correct
-// whether it's creating fresh or reusing one from an earlier session).
-// Idempotent per user: once a consent exists, it's reused rather than
-// creating a new one on every call.
-async function ensureAofConsent(user, customerId, destinationId) {
-  if (user.aofConsentId) return { consentId: user.aofConsentId, status: user.aofConsentStatus };
-  const consent = await createAofConsent(user, customerId, destinationId);
-  return { consentId: consent.id, status: consent.status };
-}
-
 // Fetches the consent's real status from Lean rather than trusting the
 // locally cached one (see the route below for why). If the cached id no
 // longer resolves at all — e.g. leftover test data from a different sandbox
@@ -96,15 +83,17 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
 
     const customerId = await ensureLeanCustomer(user);
     const destinationId = await ensureFalconDestination(user, customerId);
-    const { consentId } = await ensureAofConsent(user, customerId, destinationId);
 
-    // Never trust the locally cached status here — it can go stale (e.g. a
-    // customer completed real bank authorization in an earlier session
-    // before this app ever got a chance to record it), and re-running
-    // Lean.authorizeConsent() on a consent that isn't AWAITING_AUTHORISATION
-    // anymore is rejected outright ("Consent status is not
-    // AWAITING_AUTHORISATION"). A live check avoids ever making that call.
-    const consent = await getLiveConsent(user, customerId, destinationId, consentId);
+    // Only re-check status for a consent that already existed before this
+    // request — Lean's sandbox has a brief propagation delay right after
+    // creation, and GETting a consent immediately after POSTing it can 404
+    // even though it was created successfully seconds ago. Trusting a
+    // freshly-created consent's own response (always AWAITING_AUTHORISATION)
+    // avoids racing that delay and spuriously creating a duplicate.
+    const consent = user.aofConsentId
+      ? await getLiveConsent(user, customerId, destinationId, user.aofConsentId)
+      : await createAofConsent(user, customerId, destinationId);
+
     if (consent.status !== user.aofConsentStatus || consent.id !== user.aofConsentId) {
       db.users.update(user.id, { aofConsentId: consent.id, aofConsentStatus: consent.status });
     }

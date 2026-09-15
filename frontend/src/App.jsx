@@ -20,6 +20,12 @@ const NAV_SCREENS = new Set(['home', 'history']);
 // them once the SwiftX team enables them.
 const DEMO_CORRIDOR_CODES = ['IND'];
 
+// The Home screen's rate ticker shows a few more corridors than customers can
+// actually send to. It only ever needs a static reference rate — never the
+// live quote endpoint that's broken for these two — so there's no reason to
+// limit it to DEMO_CORRIDOR_CODES the way the real Send flow is.
+const TICKER_CORRIDOR_CODES = ['IND', 'PAK', 'NGA'];
+
 const formatStatusTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function App() {
@@ -122,6 +128,11 @@ export default function App() {
   // caused a runaway re-fetch loop in an earlier version of this file.
   const displayCorridors = useMemo(
     () => corridors.filter((c) => DEMO_CORRIDOR_CODES.includes(c.code)),
+    [corridors],
+  );
+
+  const tickerCorridors = useMemo(
+    () => corridors.filter((c) => TICKER_CORRIDOR_CODES.includes(c.code)),
     [corridors],
   );
 
@@ -255,6 +266,7 @@ export default function App() {
             {ready && screen === 'home' && (
               <Home
                 corridors={displayCorridors}
+                tickerCorridors={tickerCorridors}
                 recipients={visibleRecipients}
                 recentPayments={recentPayments}
                 sender={sender}

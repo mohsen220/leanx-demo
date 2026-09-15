@@ -18,7 +18,17 @@ function greetingFor(date) {
 // wallet here — that's the exchange house's back office, not the customer's.
 // The balance shown below is Meridian's own (Meridian's ledger, backend/src/db.js),
 // entirely separate from the pooled Lean X wallet Meridian funds behind the scenes.
-export function Home({ corridors, recipients, recentPayments, sender, onSendTo, onOpenProfile, onTopUp, onLogout }) {
+export function Home({
+  corridors,
+  tickerCorridors,
+  recipients,
+  recentPayments,
+  sender,
+  onSendTo,
+  onOpenProfile,
+  onTopUp,
+  onLogout,
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const corridorByCode = Object.fromEntries(corridors.map((c) => [c.code, c]));
   const firstName = sender.sender_name.split(' ')[0];
@@ -95,10 +105,10 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
 
       <div className="section-title">Today's rates</div>
       <TickerStrip
-        corridors={corridors}
+        corridors={tickerCorridors}
         base={brand.homeCurrency}
         anchors={Object.fromEntries(
-          corridors.map((c) => [c.code, getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency)]),
+          tickerCorridors.map((c) => [c.code, getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency)]),
         )}
       />
 

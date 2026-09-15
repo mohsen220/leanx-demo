@@ -5,9 +5,9 @@
   --text: #0f172a;
   --text-muted: #6b7280;
   --text-faint: #9ca3af;
-  --primary: #7c4dff;
-  --primary-dark: #5b2ebf;
-  --primary-soft: #f1ecff;
+  --primary: #475569;
+  --primary-dark: #1e293b;
+  --primary-soft: #e2e8f0;
   --danger: #dc2626;
   --danger-soft: #fdecea;
   --success: #16a34a;
@@ -1061,13 +1061,13 @@ code {
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 20px -8px rgba(91, 46, 191, 0.55);
+  box-shadow: 0 10px 20px -8px rgba(30, 41, 59, 0.45);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pill-action:active {
   transform: scale(0.97);
-  box-shadow: 0 4px 10px -4px rgba(91, 46, 191, 0.55);
+  box-shadow: 0 4px 10px -4px rgba(30, 41, 59, 0.45);
 }
 
 .pill-icon {

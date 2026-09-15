@@ -46,7 +46,7 @@ export function Home({
             className="avatar"
             style={{
               background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-              boxShadow: '0 4px 10px -3px rgba(91, 46, 191, 0.55)',
+              boxShadow: '0 4px 10px -3px rgba(30, 41, 59, 0.45)',
               border: 'none',
               cursor: 'pointer',
             }}

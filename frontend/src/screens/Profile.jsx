@@ -80,7 +80,7 @@ export function Profile({ sender, onBack, onVerified, setError }) {
             height: 64,
             fontSize: '1.3rem',
             background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-            boxShadow: '0 6px 16px -4px rgba(91, 46, 191, 0.55)',
+            boxShadow: '0 6px 16px -4px rgba(30, 41, 59, 0.45)',
           }}
         >
           {initials(sender.sender_name)}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { initials, avatarColor } from '../stores.js';
+import { initials } from '../stores.js';
 import { leanVerifyApi } from '../leanVerifyApi.js';
 import { BackIcon, CheckIcon, ClockIcon, XIcon } from '../icons.jsx';
 
@@ -75,7 +75,7 @@ export function Profile({ sender, onBack, onVerified, setError }) {
       <div className="status-hero" style={{ padding: '12px 8px 4px' }}>
         <div
           className="avatar"
-          style={{ width: 64, height: 64, fontSize: '1.3rem', background: avatarColor(sender.sender_name) }}
+          style={{ width: 64, height: 64, fontSize: '1.3rem', background: 'var(--primary)' }}
         >
           {initials(sender.sender_name)}
         </div>

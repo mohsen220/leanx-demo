@@ -33,7 +33,7 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
         <div className="avatar-menu-wrap">
           <button
             className="avatar"
-            style={{ background: avatarColor(sender.sender_name), border: 'none', cursor: 'pointer' }}
+            style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Account menu"
           >

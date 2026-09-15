@@ -16,8 +16,8 @@ export const HomeIcon = (props) => (
 
 export const SendIcon = (props) => (
   <svg {...base} {...props}>
-    <path d="M22 2 11 13" />
-    <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+    <path d="M21 12 3 5l4.5 7L3 19Z" />
+    <path d="M7.5 12H21" />
   </svg>
 );
 

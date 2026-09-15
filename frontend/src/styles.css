@@ -5,9 +5,9 @@
   --text: #0f172a;
   --text-muted: #6b7280;
   --text-faint: #9ca3af;
-  --primary: #7c3aed;
-  --primary-dark: #5b21b6;
-  --primary-soft: #f2ebfd;
+  --primary: #7c4dff;
+  --primary-dark: #5b2ebf;
+  --primary-soft: #f1ecff;
   --danger: #dc2626;
   --danger-soft: #fdecea;
   --warning: #b45309;
@@ -1044,7 +1044,7 @@ code {
   align-items: center;
   justify-content: center;
   gap: 9px;
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #fff;
   border: none;
   border-radius: 999px;
@@ -1052,10 +1052,13 @@ code {
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 10px 20px -8px rgba(91, 46, 191, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pill-action:active {
   transform: scale(0.97);
+  box-shadow: 0 4px 10px -4px rgba(91, 46, 191, 0.55);
 }
 
 .pill-icon {
@@ -1068,6 +1071,10 @@ code {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.pill-icon svg {
+  display: block;
 }
 
 .rate-board {

@@ -1,102 +1,143 @@
 import { useState } from 'react';
 import { leanAofApi } from '../../leanAofApi.js';
+import { leanSipApi } from '../../leanSipApi.js';
 import { brand } from '../../brand.js';
-import { BackIcon, BankIcon } from '../../icons.jsx';
+import { BackIcon } from '../../icons.jsx';
 
-const QUICK_AMOUNTS = ['100', '250', '500', '1000'];
+// Must be the EXACT string already whitelisted in the Lean Dashboard
+// (Development → Integration settings) — no query string, no trailing-slash
+// mismatch. Lean matches this exactly, not by prefix, so a URL that merely
+// looks equivalent gets rejected at the final redirect-back step rather than
+// at setup, which shows up as "Something went wrong" only after the
+// customer has already completed real bank authorization.
+const redirectUrl = () => `${window.location.origin}/`;
 
-// Starts an Account-on-File top-up. Two outcomes from the backend:
-//  - mode: 'instant'   — customer already linked their bank; charged
-//    immediately, no bank interaction at all.
-//  - mode: 'authorize' — first top-up ever: opens Lean's own LinkSDK widget
-//    right here (no separate "authorize" screen — the widget itself is
-//    the authorization step), then charges the now-authorized consent the
-//    moment it reports success.
+// Two top-up rails, same screen: AoF (leanAofApi) trades a one-time bank
+// link for instant repeat top-ups; SIP (leanSipApi) skips any setup but
+// needs a fresh bank login every single time — mirrors Lean's own AOF/SIP
+// split for Pay by Bank. Both survive a real bank redirect the same way
+// (see the localStorage handoff below and App.jsx's resume effect), since
+// Open Finance authorization is a genuine top-level navigation that wipes
+// this whole JS context.
 export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted }) {
   const [amount, setAmount] = useState('500');
+  const [method, setMethod] = useState('aof');
   const [loading, setLoading] = useState(false);
+
+  const submitAof = async () => {
+    const result = await leanAofApi.startTopup(userId, Number(amount));
+
+    if (result.mode === 'instant') {
+      onPaymentStarted({ paymentId: result.paymentId, amount: Number(amount), method: 'aof' });
+      return;
+    }
+
+    const { appToken, customerId, consentId, accessToken } = result;
+
+    // Persisted before handing off to the bank, since this whole JS context
+    // (including the callback below) can be wiped by a real redirect before
+    // it ever gets to fire — picked back up by App.jsx on the next load.
+    localStorage.setItem('falcon_pending_aof_charge', JSON.stringify({ userId, amount: Number(amount) }));
+    console.log('[lean-aof] persisted pending charge before authorization:', localStorage.getItem('falcon_pending_aof_charge'));
+
+    window.Lean.authorizeConsent({
+      app_token: appToken,
+      customer_id: customerId,
+      consent_id: consentId,
+      access_token: accessToken,
+      sandbox: true,
+      success_redirect_url: redirectUrl(),
+      fail_redirect_url: redirectUrl(),
+      // This callback is NOT a reliable terminal signal — confirmed by a
+      // real capture where it fired with a non-SUCCESS status almost
+      // immediately, and the SDK then went on to do the actual bank
+      // redirect anyway (real navigation to the bank, real login, real
+      // redirect back with an auth code). Treating that early callback as a
+      // definitive failure — clearing the pending-charge flag and
+      // abandoning the consent — was actively destroying state for a flow
+      // that was still genuinely in progress. So only two outcomes are
+      // treated as final here:
+      //  - SUCCESS: charge immediately (covers the case where the flow
+      //    somehow stays embedded rather than redirecting for real).
+      //  - CANCELLED: the customer explicitly closed the dialog before
+      //    reaching the bank — safe to treat as truly done.
+      // Anything else is logged and otherwise ignored: if a real redirect
+      // follows (as observed), this whole JS context reloads anyway and
+      // App.jsx's resume effect is the actual source of truth on return; if
+      // no redirect follows, the button just stays disabled rather than
+      // risk corrupting state on a guess.
+      callback: async (payload) => {
+        console.log('[lean-aof] authorizeConsent callback:', payload);
+
+        if (payload.status === 'CANCELLED') {
+          localStorage.removeItem('falcon_pending_aof_charge');
+          setLoading(false);
+          return;
+        }
+
+        if (payload.status !== 'SUCCESS') {
+          console.log('[lean-aof] non-terminal callback status, waiting to see if a real redirect follows');
+          return;
+        }
+
+        try {
+          localStorage.removeItem('falcon_pending_aof_charge');
+          const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount));
+          onPaymentStarted({ paymentId, amount: Number(amount), method: 'aof' });
+        } catch (err) {
+          setError(err.message);
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const submitSip = async () => {
+    const { appToken, customerId, paymentIntentId, accessToken } = await leanSipApi.startTopup(userId, Number(amount));
+
+    // Same redirect-survival handoff as AoF above — SIP's Lean.pay() is just
+    // as much a real top-level navigation to the bank and back.
+    localStorage.setItem('falcon_pending_sip_topup', JSON.stringify({ userId, amount: Number(amount), paymentIntentId }));
+    console.log('[lean-sip] persisted pending topup before authorization:', localStorage.getItem('falcon_pending_sip_topup'));
+
+    window.Lean.pay({
+      app_token: appToken,
+      customer_id: customerId,
+      payment_intent_id: paymentIntentId,
+      access_token: accessToken,
+      sandbox: true,
+      success_redirect_url: redirectUrl(),
+      fail_redirect_url: redirectUrl(),
+      // Same lesson as AoF's authorizeConsent callback: only SUCCESS and
+      // CANCELLED are treated as final, everything else is logged and
+      // ignored in case a real bank redirect is still coming. Unlike AoF,
+      // SUCCESS here needs no separate "charge" call — pay() already IS the
+      // payment — so this just starts polling the intent for settlement.
+      callback: (payload) => {
+        console.log('[lean-sip] pay callback:', payload);
+
+        if (payload.status === 'CANCELLED') {
+          localStorage.removeItem('falcon_pending_sip_topup');
+          setLoading(false);
+          return;
+        }
+
+        if (payload.status !== 'SUCCESS') {
+          console.log('[lean-sip] non-terminal callback status, waiting to see if a real redirect follows');
+          return;
+        }
+
+        localStorage.removeItem('falcon_pending_sip_topup');
+        onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 'sip' });
+      },
+    });
+  };
 
   const submit = async () => {
     setLoading(true);
     try {
-      const result = await leanAofApi.startTopup(userId, Number(amount));
-
-      if (result.mode === 'instant') {
-        onPaymentStarted({ paymentId: result.paymentId, amount: Number(amount) });
-        return;
-      }
-
-      const { appToken, customerId, consentId, accessToken } = result;
-      // Must be the EXACT string already whitelisted in the Lean Dashboard
-      // (Development → Integration settings) — no query string, no trailing-
-      // slash mismatch. Lean matches this exactly, not by prefix, so a URL
-      // that merely looks equivalent (e.g. with ?aof_status=... appended)
-      // gets rejected at the final redirect-back step rather than at setup,
-      // which shows up as "Something went wrong" only after the customer has
-      // already completed real bank authorization.
-      const redirectUrl = `${window.location.origin}/`;
-
-      // Real Open Finance bank authorization is a genuine top-level
-      // navigation away to the bank and back — not something that stays
-      // embedded in this page. That means this whole JS context (including
-      // the callback below) can be wiped out by the time the customer
-      // returns, so what to do next is persisted here, before handing off,
-      // and picked back up by App.jsx on the next load if the callback
-      // never gets the chance to fire.
-      const pendingPayload = JSON.stringify({ userId, amount: Number(amount) });
-      localStorage.setItem('falcon_pending_aof_charge', pendingPayload);
-      console.log('[lean-aof] persisted pending charge before authorization:', localStorage.getItem('falcon_pending_aof_charge'));
-
-      window.Lean.authorizeConsent({
-        app_token: appToken,
-        customer_id: customerId,
-        consent_id: consentId,
-        access_token: accessToken,
-        sandbox: true,
-        success_redirect_url: redirectUrl,
-        fail_redirect_url: redirectUrl,
-        // This callback is NOT a reliable terminal signal — confirmed by a
-        // real capture where it fired with a non-SUCCESS status almost
-        // immediately, and the SDK then went on to do the actual bank
-        // redirect anyway (real navigation to the bank, real login, real
-        // redirect back with an auth code). Treating that early callback as
-        // a definitive failure — clearing the pending-charge flag and
-        // abandoning the consent — was actively destroying state for a flow
-        // that was still genuinely in progress. So only two outcomes are
-        // treated as final here:
-        //  - SUCCESS: charge immediately (covers the case where the flow
-        //    somehow stays embedded rather than redirecting for real).
-        //  - CANCELLED: the customer explicitly closed the dialog before
-        //    reaching the bank — safe to treat as truly done.
-        // Anything else is logged and otherwise ignored: if a real redirect
-        // follows (as observed), this whole JS context reloads anyway and
-        // App.jsx's resume effect is the actual source of truth on return;
-        // if no redirect follows, the button just stays disabled rather
-        // than risk corrupting state on a guess.
-        callback: async (payload) => {
-          console.log('[lean-aof] authorizeConsent callback:', payload);
-
-          if (payload.status === 'CANCELLED') {
-            localStorage.removeItem('falcon_pending_aof_charge');
-            setLoading(false);
-            return;
-          }
-
-          if (payload.status !== 'SUCCESS') {
-            console.log('[lean-aof] non-terminal callback status, waiting to see if a real redirect follows');
-            return;
-          }
-
-          try {
-            localStorage.removeItem('falcon_pending_aof_charge');
-            const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount));
-            onPaymentStarted({ paymentId, amount: Number(amount) });
-          } catch (err) {
-            setError(err.message);
-            setLoading(false);
-          }
-        },
-      });
+      if (method === 'aof') await submitAof();
+      else await submitSip();
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -127,21 +168,13 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         />
       </div>
 
-      <div className="chip-row">
-        {QUICK_AMOUNTS.map((v) => (
-          <button key={v} className={`chip ${amount === v ? 'active' : ''}`} onClick={() => setAmount(v)}>
-            {v} AED
-          </button>
-        ))}
-      </div>
-
-      <div className="k" style={{ padding: '4px 4px 6px' }}>
+      <label className="field">
         Payment method
-      </div>
-      <div className="card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <BankIcon width={20} height={20} />
-        <span style={{ fontWeight: 600 }}>Pay by Bank</span>
-      </div>
+        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+          <option value="aof">Account on File — link once, then instant top-ups</option>
+          <option value="sip">Pay by Bank — one-off payment, bank login each time</option>
+        </select>
+      </label>
 
       <button className="btn btn-primary" disabled={loading || !(Number(amount) > 0)} onClick={submit} style={{ marginTop: 12 }}>
         {loading ? <span className="spinner" /> : `Pay ${amount || 0} AED`}

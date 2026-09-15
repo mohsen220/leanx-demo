@@ -91,36 +91,58 @@ export default function App() {
   }, [userId]);
 
   // Picks up a top-up left mid-authorization when a real bank redirect
-  // reloaded the app (see EnterTopupAmount.jsx) — the consent should now be
-  // AUTHORISED, so this charges it for real and drops straight into the
-  // status screen, rather than silently doing nothing (which is what was
-  // happening before this existed: the redirect completed, but no charge
-  // was ever actually made).
+  // reloaded the app (see EnterTopupAmount.jsx) — rather than silently doing
+  // nothing (which is what was happening before this existed: the redirect
+  // completed, but the top-up was never actually finished). AoF and SIP each
+  // leave their own localStorage flag, checked in turn — at most one should
+  // ever be set at a time, since starting a top-up is what sets one.
   useEffect(() => {
     if (!sender) return;
-    const raw = localStorage.getItem('falcon_pending_aof_charge');
-    console.log('[lean-aof] checking for pending charge on load:', raw, '| current sender:', sender.id);
-    if (!raw) return;
-    localStorage.removeItem('falcon_pending_aof_charge');
 
-    let pending;
-    try {
-      pending = JSON.parse(raw);
-    } catch {
+    const aofRaw = localStorage.getItem('falcon_pending_aof_charge');
+    console.log('[lean-aof] checking for pending charge on load:', aofRaw, '| current sender:', sender.id);
+    if (aofRaw) {
+      localStorage.removeItem('falcon_pending_aof_charge');
+      let pending;
+      try {
+        pending = JSON.parse(aofRaw);
+      } catch {
+        return;
+      }
+      if (pending.userId !== sender.id) {
+        console.log('[lean-aof] pending charge belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
+        return;
+      }
+      // The consent should now be AUTHORISED, so this charges it for real.
+      leanAofApi
+        .chargeAfterAuthorization(pending.userId, pending.amount)
+        .then(({ paymentId }) => {
+          setResumeTopup({ paymentId, amount: pending.amount, method: 'aof' });
+          setScreen('topup');
+        })
+        .catch((err) => setError(err.message));
       return;
     }
-    if (pending.userId !== sender.id) {
-      console.log('[lean-aof] pending charge belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
-      return;
-    }
 
-    leanAofApi
-      .chargeAfterAuthorization(pending.userId, pending.amount)
-      .then(({ paymentId }) => {
-        setResumeTopup({ paymentId, amount: pending.amount });
-        setScreen('topup');
-      })
-      .catch((err) => setError(err.message));
+    const sipRaw = localStorage.getItem('falcon_pending_sip_topup');
+    console.log('[lean-sip] checking for pending topup on load:', sipRaw, '| current sender:', sender.id);
+    if (sipRaw) {
+      localStorage.removeItem('falcon_pending_sip_topup');
+      let pending;
+      try {
+        pending = JSON.parse(sipRaw);
+      } catch {
+        return;
+      }
+      if (pending.userId !== sender.id) {
+        console.log('[lean-sip] pending topup belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
+        return;
+      }
+      // Unlike AoF, SIP's Lean.pay() already IS the payment — nothing left
+      // to charge, just resume polling the intent for settlement.
+      setResumeTopup({ paymentId: pending.paymentIntentId, amount: pending.amount, method: 'sip' });
+      setScreen('topup');
+    }
   }, [sender]);
 
   // Memoized: this must NOT be a new array reference on every render — several
@@ -282,6 +304,7 @@ export default function App() {
                 userId={sender.id}
                 resumePaymentId={resumeTopup?.paymentId}
                 resumeAmount={resumeTopup?.amount}
+                resumeMethod={resumeTopup?.method}
                 setError={setError}
                 onExit={() => setScreen('home')}
                 onComplete={onTopupComplete}

@@ -84,15 +84,30 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
     const customerId = await ensureLeanCustomer(user);
     const destinationId = await ensureFalconDestination(user, customerId);
 
-    // Only re-check status for a consent that already existed before this
-    // request — Lean's sandbox has a brief propagation delay right after
-    // creation, and GETting a consent immediately after POSTing it can 404
-    // even though it was created successfully seconds ago. Trusting a
-    // freshly-created consent's own response (always AWAITING_AUTHORISATION)
-    // avoids racing that delay and spuriously creating a duplicate.
-    const consent = user.aofConsentId
-      ? await getLiveConsent(user, customerId, destinationId, user.aofConsentId)
-      : await createAofConsent(user, customerId, destinationId);
+    // Once WE have confirmed a consent is AUTHORISED (only ever set by our
+    // own /lean/aof/topup/charge route, right after a real authorization
+    // succeeded), that's trusted unconditionally — never re-verified against
+    // Lean's GET /consents/v1/{id}. That endpoint has the same eventual-
+    // consistency flakiness we saw right after creation, except here it can
+    // also spuriously 404 an old, definitely-valid, already-authorized
+    // consent — which previously made this route wrongly conclude the
+    // consent was gone and create (and re-authorize) a brand new one every
+    // single top-up, defeating the entire point of AoF over SIP.
+    //
+    // The live check only exists to resolve genuine uncertainty: a consent
+    // still AWAITING_AUTHORISATION locally that may have actually been
+    // authorized in a prior session before this app got a chance to record
+    // it (see the redirect-resume flow). A freshly-created consent's own
+    // response is trusted directly, without a live check, for the same
+    // creation-propagation-delay reason as before.
+    let consent;
+    if (user.aofConsentStatus === 'AUTHORISED' && user.aofConsentId) {
+      consent = { id: user.aofConsentId, status: 'AUTHORISED' };
+    } else if (user.aofConsentId) {
+      consent = await getLiveConsent(user, customerId, destinationId, user.aofConsentId);
+    } else {
+      consent = await createAofConsent(user, customerId, destinationId);
+    }
 
     if (consent.status !== user.aofConsentStatus || consent.id !== user.aofConsentId) {
       db.users.update(user.id, { aofConsentId: consent.id, aofConsentStatus: consent.status });

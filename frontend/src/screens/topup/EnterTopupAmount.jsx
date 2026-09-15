@@ -35,6 +35,16 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       // which shows up as "Something went wrong" only after the customer has
       // already completed real bank authorization.
       const redirectUrl = `${window.location.origin}/`;
+
+      // Real Open Finance bank authorization is a genuine top-level
+      // navigation away to the bank and back — not something that stays
+      // embedded in this page. That means this whole JS context (including
+      // the callback below) can be wiped out by the time the customer
+      // returns, so what to do next is persisted here, before handing off,
+      // and picked back up by App.jsx on the next load if the callback
+      // never gets the chance to fire.
+      localStorage.setItem('falcon_pending_aof_charge', JSON.stringify({ userId, amount: Number(amount) }));
+
       window.Lean.authorizeConsent({
         app_token: appToken,
         customer_id: customerId,
@@ -43,13 +53,18 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         sandbox: true,
         success_redirect_url: redirectUrl,
         fail_redirect_url: redirectUrl,
+        // Only fires if the flow stayed embedded (e.g. cancelled before ever
+        // reaching the bank) — a completed authorization redirects for real
+        // and reloads the app instead, per the comment above.
         callback: async (payload) => {
           if (payload.status !== 'SUCCESS') {
+            localStorage.removeItem('falcon_pending_aof_charge');
             setLoading(false);
             if (payload.status !== 'CANCELLED') setError(payload.message ?? `Authorization ${payload.status}`);
             return;
           }
           try {
+            localStorage.removeItem('falcon_pending_aof_charge');
             const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount));
             onPaymentStarted({ paymentId, amount: Number(amount) });
           } catch (err) {

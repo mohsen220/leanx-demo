@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
 import { ledgerApi } from './ledgerApi.js';
+import { leanAofApi } from './leanAofApi.js';
 import { getActiveUserId, setActiveUserId, clearActiveUserId } from './stores.js';
 import { BottomNav } from './components/BottomNav.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
@@ -38,6 +39,10 @@ export default function App() {
   const [error, setError] = useState(null);
   const [historyKey, setHistoryKey] = useState(0);
   const [statusTime, setStatusTime] = useState(() => formatStatusTime(new Date()));
+  // Set once, right after a real bank redirect reloads the whole app —
+  // see the localStorage handoff in EnterTopupAmount.jsx. Drives TopUp
+  // straight into its status step instead of restarting from "amount".
+  const [resumeTopup, setResumeTopup] = useState(null);
 
   // Real wall-clock time in the status bar, ticking on the minute.
   useEffect(() => {
@@ -78,6 +83,35 @@ export default function App() {
       });
     ledgerApi.listRecipients(userId).then(setRecipients).catch((err) => setError(err.message));
   }, [userId]);
+
+  // Picks up a top-up left mid-authorization when a real bank redirect
+  // reloaded the app (see EnterTopupAmount.jsx) — the consent should now be
+  // AUTHORISED, so this charges it for real and drops straight into the
+  // status screen, rather than silently doing nothing (which is what was
+  // happening before this existed: the redirect completed, but no charge
+  // was ever actually made).
+  useEffect(() => {
+    if (!sender) return;
+    const raw = localStorage.getItem('falcon_pending_aof_charge');
+    if (!raw) return;
+    localStorage.removeItem('falcon_pending_aof_charge');
+
+    let pending;
+    try {
+      pending = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (pending.userId !== sender.id) return;
+
+    leanAofApi
+      .chargeAfterAuthorization(pending.userId, pending.amount)
+      .then(({ paymentId }) => {
+        setResumeTopup({ paymentId, amount: pending.amount });
+        setScreen('topup');
+      })
+      .catch((err) => setError(err.message));
+  }, [sender]);
 
   // Memoized: this must NOT be a new array reference on every render — several
   // child effects depend on it, and a fresh .filter() result on every render
@@ -138,6 +172,7 @@ export default function App() {
   const onTopupComplete = () => {
     refreshSender(); // credited server-side once the bank authorization settled
     setHistoryKey((k) => k + 1);
+    setResumeTopup(null); // otherwise a later top-up would resume straight into this stale payment
     setScreen('home');
   };
 
@@ -227,7 +262,14 @@ export default function App() {
             )}
 
             {ready && screen === 'topup' && (
-              <TopUp userId={sender.id} setError={setError} onExit={() => setScreen('home')} onComplete={onTopupComplete} />
+              <TopUp
+                userId={sender.id}
+                resumePaymentId={resumeTopup?.paymentId}
+                resumeAmount={resumeTopup?.amount}
+                setError={setError}
+                onExit={() => setScreen('home')}
+                onComplete={onTopupComplete}
+              />
             )}
 
             {ready && screen === 'send' && (

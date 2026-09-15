@@ -4,12 +4,13 @@ import { TopupStatus } from './topup/TopupStatus.jsx';
 
 // Two steps: amount (which also handles first-time bank authorization via
 // the LinkSDK, inline — see EnterTopupAmount.jsx) → poll to settlement.
-// Unlike a redirect-based rail, AoF never leaves this page, so there's no
-// resume-after-redirect step to coordinate with App.jsx.
-export function TopUp({ userId, setError, onExit, onComplete }) {
-  const [step, setStep] = useState('amount');
-  const [amount, setAmount] = useState(0);
-  const [paymentId, setPaymentId] = useState(null);
+// `resumePaymentId`/`resumeAmount` let App.jsx drop straight into the status
+// step after a real bank redirect reloads the whole app — see the
+// localStorage handoff in EnterTopupAmount.jsx and the pickup in App.jsx.
+export function TopUp({ userId, resumePaymentId, resumeAmount, setError, onExit, onComplete }) {
+  const [step, setStep] = useState(resumePaymentId ? 'status' : 'amount');
+  const [amount, setAmount] = useState(resumeAmount ?? 0);
+  const [paymentId, setPaymentId] = useState(resumePaymentId ?? null);
 
   if (step === 'amount') {
     return (

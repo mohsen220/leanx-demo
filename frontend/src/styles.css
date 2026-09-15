@@ -5,9 +5,9 @@
   --text: #0f172a;
   --text-muted: #6b7280;
   --text-faint: #9ca3af;
-  --primary: #b7791f;
-  --primary-dark: #8a5a14;
-  --primary-soft: #fbf1de;
+  --primary: #111111;
+  --primary-dark: #000000;
+  --primary-soft: #f1f1f2;
   --danger: #dc2626;
   --danger-soft: #fdecea;
   --warning: #b45309;
@@ -1062,8 +1062,8 @@ code {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--primary);
-  color: #1c1c1e;
+  background: #fff;
+  color: #111;
   display: flex;
   align-items: center;
   justify-content: center;

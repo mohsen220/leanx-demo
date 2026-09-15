@@ -35,19 +35,6 @@ async function createAofConsent(user, customerId, destinationId) {
   return consent;
 }
 
-// Fetches the consent's real status from Lean rather than trusting the
-// locally cached one (see the route below for why). If the cached id no
-// longer resolves at all — e.g. leftover test data from a different sandbox
-// state — falls back to creating a fresh consent instead of hard-failing.
-async function getLiveConsent(user, customerId, destinationId, consentId) {
-  try {
-    return await leanApiFetch(`/consents/v1/${consentId}`);
-  } catch (err) {
-    if (err.status !== 404) throw err;
-    return createAofConsent(user, customerId, destinationId);
-  }
-}
-
 // Actually moves money against an already-AUTHORISED consent — no bank
 // redirect at all, which is the entire point of AoF over SIP/Payment Links.
 // Idempotency-Key is required by this endpoint; a fresh one per call is
@@ -84,46 +71,34 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
     const customerId = await ensureLeanCustomer(user);
     const destinationId = await ensureFalconDestination(user, customerId);
 
-    // Once WE have confirmed a consent is AUTHORISED (only ever set by our
-    // own /lean/aof/topup/charge route, right after a real authorization
-    // succeeded), that's trusted unconditionally — never re-verified against
-    // Lean's GET /consents/v1/{id}. That endpoint has the same eventual-
-    // consistency flakiness we saw right after creation, except here it can
-    // also spuriously 404 an old, definitely-valid, already-authorized
-    // consent — which previously made this route wrongly conclude the
-    // consent was gone and create (and re-authorize) a brand new one every
-    // single top-up, defeating the entire point of AoF over SIP.
-    //
-    // The live check only exists to resolve genuine uncertainty: a consent
-    // still AWAITING_AUTHORISATION locally that may have actually been
-    // authorized in a prior session before this app got a chance to record
-    // it (see the redirect-resume flow). A freshly-created consent's own
-    // response is trusted directly, without a live check, for the same
-    // creation-propagation-delay reason as before.
+    // GET /consents/v1/{id} turns out to be unreliable for a consent still
+    // AWAITING_AUTHORISATION — it can 404 a definitely-valid, previously-
+    // created consent minutes later, not just in a brief window right after
+    // creation. An earlier version of this route used that GET to decide
+    // whether to reuse or recreate the consent, and the 404s made it
+    // recreate (and thus force re-authorizing) a brand new consent on
+    // nearly every single call — silently orphaning whatever authorization
+    // progress the customer had just made in the bank's UI. So this never
+    // calls that endpoint at all:
+    //  - AUTHORISED locally → trust it and charge directly. This is only
+    //    ever set by /lean/aof/topup/charge below, right after this app's
+    //    own code confirmed a real authorization succeeded, so there's
+    //    nothing to re-verify.
+    //  - Any cached consent that isn't AUTHORISED → reuse the SAME id for
+    //    another authorize attempt, rather than creating a new one. Retrying
+    //    against the same consent is what actually lets a customer recover
+    //    from a stalled/cancelled attempt.
+    //  - No cached consent at all → create one.
     let consent;
-    if (user.aofConsentStatus === 'AUTHORISED' && user.aofConsentId) {
-      consent = { id: user.aofConsentId, status: 'AUTHORISED' };
-    } else if (user.aofConsentId) {
-      consent = await getLiveConsent(user, customerId, destinationId, user.aofConsentId);
+    if (user.aofConsentId) {
+      consent = { id: user.aofConsentId, status: user.aofConsentStatus };
     } else {
       consent = await createAofConsent(user, customerId, destinationId);
-    }
-
-    if (consent.status !== user.aofConsentStatus || consent.id !== user.aofConsentId) {
-      db.users.update(user.id, { aofConsentId: consent.id, aofConsentStatus: consent.status });
     }
 
     if (consent.status === 'AUTHORISED') {
       const payment = await chargeAofConsent(user, consent.id, amount);
       return res.json({ mode: 'instant', paymentId: payment.id, status: payment.status });
-    }
-
-    if (consent.status !== 'AWAITING_AUTHORISATION') {
-      // REVOKED / REJECTED / EXPIRED / CONSUMED / SUSPENDED — none of these
-      // can be authorized again; a fresh consent would be needed. Out of
-      // scope to auto-recover here, so this surfaces clearly rather than
-      // retrying a call Lean will reject anyway.
-      return res.status(409).json({ error: `AoF consent is ${consent.status} — cannot top up` });
     }
 
     const { accessToken } = await getCustomerToken(customerId);

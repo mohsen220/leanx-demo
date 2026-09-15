@@ -10,18 +10,19 @@ function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
-// A small live-looking ticker, in the spirit of a trading app's watchlist row
-// (name + pair on the left, price + colored move on the right, both nudging
-// every couple of seconds). The anchor is the real rate this app already has
-// — the live SwiftX-quoted rate if one's been fetched, otherwise the static
-// reference rate (see Home.jsx) — this only adds cosmetic, gently mean-
-// reverting jitter around it so it reads as "live" without ever claiming a
-// specific fabricated market move.
+// A small live-looking ticker, in the spirit of tradestart's watchlist rows
+// (name + pair on the left, price + colored move on the right). Each tick the
+// digits roll vertically into place — like a real price ticker — instead of
+// just swapping in place. The anchor is the real rate this app already has:
+// the live SwiftX-quoted rate if one's been fetched, otherwise the static
+// reference rate (see Home.jsx). This only adds cosmetic, gently mean-
+// reverting jitter around that anchor, so it reads as "live" without ever
+// claiming a specific fabricated market move.
 export function RateTickerRow({ flag, name, base, quote, anchorRate }) {
   const anchorRef = useRef(anchorRate);
   const [rate, setRate] = useState(anchorRate);
   const [direction, setDirection] = useState('flat');
-  const [flash, setFlash] = useState('');
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     anchorRef.current = anchorRate;
@@ -37,18 +38,12 @@ export function RateTickerRow({ flag, name, base, quote, anchorRate }) {
         const noise = anchor * (Math.random() - 0.5) * JITTER;
         const next = prev + pull + noise;
         setDirection(next >= prev ? 'up' : 'down');
-        setFlash(next >= prev ? 'up' : 'down');
+        setTick((t) => t + 1);
         return next;
       });
     }, TICK_MS);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    if (!flash) return;
-    const t = setTimeout(() => setFlash(''), 500);
-    return () => clearTimeout(t);
-  }, [flash]);
 
   const anchor = anchorRef.current;
   const changePct = anchor ? ((rate - anchor) / anchor) * 100 : 0;
@@ -65,7 +60,11 @@ export function RateTickerRow({ flag, name, base, quote, anchorRate }) {
         </span>
       </span>
       <span className="rate-price-block">
-        <span className={`rate-price ${flash ? `flash-${flash}` : ''}`}>{fmt(rate)}</span>
+        <span className="rate-price-wrap">
+          <span key={tick} className={`rate-price-slide ${direction}`}>
+            {fmt(rate)}
+          </span>
+        </span>
         <span className={`rate-change ${direction}`}>
           {changePct === 0 ? '—' : `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`}
         </span>

@@ -1143,20 +1143,61 @@ code {
   gap: 1px;
 }
 
-.rate-price {
+.rate-price-wrap {
+  display: inline-block;
+  overflow: hidden;
+  height: 1.3em;
+  line-height: 1.3em;
+}
+
+.rate-price-slide {
+  display: inline-block;
   font-size: 0.98rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--text);
-  transition: color 0.35s ease;
+  animation: rate-slide-up 0.45s ease-out;
 }
 
-.rate-price.flash-up {
-  color: var(--success);
+.rate-price-slide.down {
+  animation-name: rate-slide-down;
 }
 
-.rate-price.flash-down {
-  color: var(--danger);
+@keyframes rate-slide-up {
+  0% {
+    transform: translateY(70%);
+    opacity: 0;
+    color: var(--success);
+  }
+  60% {
+    color: var(--success);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    color: var(--text);
+  }
+}
+
+@keyframes rate-slide-down {
+  0% {
+    transform: translateY(-70%);
+    opacity: 0;
+    color: var(--danger);
+  }
+  60% {
+    color: var(--danger);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    color: var(--text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rate-price-slide {
+    animation: none;
+  }
 }
 
 .rate-change {

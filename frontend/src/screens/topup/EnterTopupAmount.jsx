@@ -55,24 +55,38 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         sandbox: true,
         success_redirect_url: redirectUrl,
         fail_redirect_url: redirectUrl,
-        // Only fires if the flow stayed embedded (e.g. cancelled before ever
-        // reaching the bank) — a completed authorization redirects for real
-        // and reloads the app instead, per the comment above.
+        // This callback is NOT a reliable terminal signal — confirmed by a
+        // real capture where it fired with a non-SUCCESS status almost
+        // immediately, and the SDK then went on to do the actual bank
+        // redirect anyway (real navigation to the bank, real login, real
+        // redirect back with an auth code). Treating that early callback as
+        // a definitive failure — clearing the pending-charge flag and
+        // abandoning the consent — was actively destroying state for a flow
+        // that was still genuinely in progress. So only two outcomes are
+        // treated as final here:
+        //  - SUCCESS: charge immediately (covers the case where the flow
+        //    somehow stays embedded rather than redirecting for real).
+        //  - CANCELLED: the customer explicitly closed the dialog before
+        //    reaching the bank — safe to treat as truly done.
+        // Anything else is logged and otherwise ignored: if a real redirect
+        // follows (as observed), this whole JS context reloads anyway and
+        // App.jsx's resume effect is the actual source of truth on return;
+        // if no redirect follows, the button just stays disabled rather
+        // than risk corrupting state on a guess.
         callback: async (payload) => {
-          if (payload.status !== 'SUCCESS') {
+          console.log('[lean-aof] authorizeConsent callback:', payload);
+
+          if (payload.status === 'CANCELLED') {
             localStorage.removeItem('falcon_pending_aof_charge');
             setLoading(false);
-            if (payload.status !== 'CANCELLED') {
-              setError(payload.message ?? `Authorization ${payload.status}`);
-              // A genuine (non-cancelled) failed attempt leaves this consent
-              // unable to accept a retry — Lean rejects a second
-              // authorization attempt against it with 409 Conflict. Abandon
-              // it so the next top-up creates a fresh one instead of
-              // silently failing the same way again.
-              leanAofApi.abandonConsent(userId).catch(() => {});
-            }
             return;
           }
+
+          if (payload.status !== 'SUCCESS') {
+            console.log('[lean-aof] non-terminal callback status, waiting to see if a real redirect follows');
+            return;
+          }
+
           try {
             localStorage.removeItem('falcon_pending_aof_charge');
             const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount));

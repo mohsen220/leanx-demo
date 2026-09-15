@@ -10,6 +10,8 @@
   --primary-soft: #f1ecff;
   --danger: #dc2626;
   --danger-soft: #fdecea;
+  --success: #16a34a;
+  --success-soft: #eafaf0;
   --warning: #b45309;
   --warning-soft: #fef3e2;
   --border: #e7e9ec;
@@ -1089,9 +1091,8 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 0;
+  padding: 10px 0;
   border-top: 1px solid var(--border);
-  font-size: 0.9rem;
 }
 
 .rate-row:first-of-type {
@@ -1102,30 +1103,69 @@ code {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 600;
 }
 
 .flag-chip {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--surface-alt);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.92rem;
+  font-size: 1rem;
   flex-shrink: 0;
 }
 
-.rate-row .value {
-  font-size: 0.92rem;
+.rate-name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rate-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rate-ticker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
+.rate-price-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.rate-price {
+  font-size: 0.98rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.rate-change {
+  font-size: 0.76rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.rate-currency {
-  font-weight: 600;
-  color: var(--text-muted);
+.rate-change.up {
+  color: var(--success);
+}
+
+.rate-change.down {
+  color: var(--danger);
+}
+
+.rate-change.flat {
+  color: var(--text-faint);
 }
 
 .chip-scroller {

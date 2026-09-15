@@ -94,18 +94,35 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
 
       <div className="section-title">Today's rates</div>
       <div className="rate-board">
-        {corridors.map((c) => (
-          <div className="rate-row" key={c.code}>
-            <span className="pair">
-              <span className="flag-chip">{c.flag}</span>
-              <span>{c.name}</span>
-            </span>
-            <span className="value">
-              1 {brand.homeCurrency} = {fmt(getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency))}{' '}
-              <span className="rate-currency">{c.currency}</span>
-            </span>
-          </div>
-        ))}
+        {corridors.map((c) => {
+          const baseline = indicativeRate(c, brand.homeCurrency);
+          const live = getCachedRate(c.code);
+          const rate = live ?? baseline;
+          // No live SwiftX quote cached yet (see rateStore.js) — nothing to
+          // compare against, so the move is unknown rather than zero.
+          const movePct = live ? ((live - baseline) / baseline) * 100 : null;
+          const moveDirection = movePct === null ? 'flat' : movePct >= 0 ? 'up' : 'down';
+
+          return (
+            <div className="rate-row" key={c.code}>
+              <span className="pair">
+                <span className="flag-chip">{c.flag}</span>
+                <span className="rate-name-block">
+                  <span className="rate-name">{c.name}</span>
+                  <span className="rate-ticker">
+                    {brand.homeCurrency}/{c.currency}
+                  </span>
+                </span>
+              </span>
+              <span className="rate-price-block">
+                <span className="rate-price">{fmt(rate)}</span>
+                <span className={`rate-change ${moveDirection}`}>
+                  {movePct === null ? '—' : `${movePct >= 0 ? '+' : ''}${movePct.toFixed(2)}%`}
+                </span>
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="section-title">Send again</div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { brand, indicativeRate } from '../brand.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
-import { RateTickerRow } from '../components/RateTickerRow.jsx';
+import { TickerStrip } from '../components/TickerStrip.jsx';
 import { BankIcon, PlusIcon, SendIcon, UserIcon, LogoutIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
@@ -94,18 +94,13 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
       </div>
 
       <div className="section-title">Today's rates</div>
-      <div className="rate-board">
-        {corridors.map((c) => (
-          <RateTickerRow
-            key={c.code}
-            flag={c.flag}
-            name={c.name}
-            base={brand.homeCurrency}
-            quote={c.currency}
-            anchorRate={getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency)}
-          />
-        ))}
-      </div>
+      <TickerStrip
+        corridors={corridors}
+        base={brand.homeCurrency}
+        anchors={Object.fromEntries(
+          corridors.map((c) => [c.code, getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency)]),
+        )}
+      />
 
       <div className="section-title">Send again</div>
       <div className="chip-scroller">

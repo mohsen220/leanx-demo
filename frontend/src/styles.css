@@ -49,6 +49,7 @@ button {
 
 .iphone {
   position: relative;
+  min-width: 0;
   filter: drop-shadow(0 34px 40px rgba(15, 23, 42, 0.22)) drop-shadow(0 6px 12px rgba(15, 23, 42, 0.14));
 }
 
@@ -60,7 +61,13 @@ button {
   position: relative;
   box-sizing: border-box;
   aspect-ratio: 71.9 / 150;
-  height: min(760px, 80vh);
+  /* Height is normally the constrained dimension, but on a narrow-and-tall
+     viewport 80vh can derive a width (via the aspect-ratio) wider than the
+     screen — the third term re-expresses .shell's available width (100vw
+     minus its 16px side padding) as an equivalent height, so the frame never
+     overflows sideways. */
+  height: min(760px, 80vh, calc((100vw - 32px) * 150 / 71.9));
+  overflow: hidden;
   padding: 14px 12px;
   border-radius: 54px;
   background: linear-gradient(155deg, #55555a 0%, #26262a 18%, #232326 30%, #131315 60%, #030304 100%);
@@ -1079,143 +1086,76 @@ code {
   display: block;
 }
 
-.rate-board {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
+.ticker-strip {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--primary-dark);
   border-radius: var(--radius-lg);
-  padding: 16px 18px;
-}
-
-.rate-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
-}
-
-.rate-row:first-of-type {
-  border-top: none;
-}
-
-.rate-row .pair {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.flag-chip {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--surface-alt);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.rate-name-block {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.rate-name {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.rate-ticker {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-faint);
-  letter-spacing: 0.02em;
-}
-
-.rate-price-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-}
-
-.rate-price-wrap {
-  display: inline-block;
   overflow: hidden;
-  height: 1.3em;
-  line-height: 1.3em;
 }
 
-.rate-price-slide {
-  display: inline-block;
-  font-size: 0.98rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  animation: rate-slide-up 0.45s ease-out;
-}
-
-.rate-price-slide.down {
-  animation-name: rate-slide-down;
-}
-
-@keyframes rate-slide-up {
-  0% {
-    transform: translateY(70%);
-    opacity: 0;
-    color: var(--success);
-  }
-  60% {
-    color: var(--success);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-    color: var(--text);
-  }
-}
-
-@keyframes rate-slide-down {
-  0% {
-    transform: translateY(-70%);
-    opacity: 0;
-    color: var(--danger);
-  }
-  60% {
-    color: var(--danger);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-    color: var(--text);
-  }
+.ticker-inner {
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+  animation: ticker-scroll 7s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rate-price-slide {
+  .ticker-inner {
     animation: none;
   }
 }
 
-.rate-change {
-  font-size: 0.76rem;
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.84rem;
+}
+
+.ticker-flag {
+  font-size: 0.95rem;
+}
+
+.ticker-name {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.ticker-price {
+  color: #fff;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-chg {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.rate-change.up {
+.ticker-chg.up {
   color: var(--success);
 }
 
-.rate-change.down {
+.ticker-chg.down {
   color: var(--danger);
 }
 
-.rate-change.flat {
-  color: var(--text-faint);
+.ticker-chg.flat {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .chip-scroller {

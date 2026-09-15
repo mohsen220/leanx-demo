@@ -35,7 +35,7 @@ body:has(.ad-page) {
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  background: linear-gradient(135deg, #1c1c1e, var(--primary));
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
   color: white;
   font-weight: 700;
   font-size: 0.85rem;
@@ -141,7 +141,7 @@ body:has(.ad-page) {
 }
 
 .ad-kpi-hero {
-  background: linear-gradient(135deg, #1c1c1e, #2c2c2e 60%, var(--primary));
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary) 70%);
   border: none;
   color: white;
 }

@@ -5,9 +5,9 @@
   --text: #0f172a;
   --text-muted: #6b7280;
   --text-faint: #9ca3af;
-  --primary: #111111;
-  --primary-dark: #000000;
-  --primary-soft: #f1f1f2;
+  --primary: #7c3aed;
+  --primary-dark: #5b21b6;
+  --primary-soft: #f2ebfd;
   --danger: #dc2626;
   --danger-soft: #fdecea;
   --warning: #b45309;
@@ -480,7 +480,7 @@ h2 {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #1c1c1e, var(--primary));
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
   color: white;
   display: flex;
   align-items: center;
@@ -1044,7 +1044,7 @@ code {
   align-items: center;
   justify-content: center;
   gap: 9px;
-  background: #1c1c1e;
+  background: var(--primary);
   color: #fff;
   border: none;
   border-radius: 999px;
@@ -1063,7 +1063,7 @@ code {
   height: 24px;
   border-radius: 50%;
   background: #fff;
-  color: #111;
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1071,8 +1071,9 @@ code {
 }
 
 .rate-board {
-  background: linear-gradient(135deg, #1c1c1e, #2c2c2e 60%, var(--primary));
-  color: white;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-radius: var(--radius-lg);
   padding: 16px 18px;
 }
@@ -1081,7 +1082,7 @@ code {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.75;
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
 
@@ -1090,7 +1091,7 @@ code {
   align-items: center;
   justify-content: space-between;
   padding: 7px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid var(--border);
   font-size: 0.86rem;
 }
 

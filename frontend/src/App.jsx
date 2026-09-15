@@ -93,6 +93,7 @@ export default function App() {
   useEffect(() => {
     if (!sender) return;
     const raw = localStorage.getItem('falcon_pending_aof_charge');
+    console.log('[lean-aof] checking for pending charge on load:', raw, '| current sender:', sender.id);
     if (!raw) return;
     localStorage.removeItem('falcon_pending_aof_charge');
 
@@ -102,7 +103,10 @@ export default function App() {
     } catch {
       return;
     }
-    if (pending.userId !== sender.id) return;
+    if (pending.userId !== sender.id) {
+      console.log('[lean-aof] pending charge belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
+      return;
+    }
 
     leanAofApi
       .chargeAfterAuthorization(pending.userId, pending.amount)

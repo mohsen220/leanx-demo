@@ -43,7 +43,9 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       // returns, so what to do next is persisted here, before handing off,
       // and picked back up by App.jsx on the next load if the callback
       // never gets the chance to fire.
-      localStorage.setItem('falcon_pending_aof_charge', JSON.stringify({ userId, amount: Number(amount) }));
+      const pendingPayload = JSON.stringify({ userId, amount: Number(amount) });
+      localStorage.setItem('falcon_pending_aof_charge', pendingPayload);
+      console.log('[lean-aof] persisted pending charge before authorization:', localStorage.getItem('falcon_pending_aof_charge'));
 
       window.Lean.authorizeConsent({
         app_token: appToken,

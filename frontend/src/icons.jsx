@@ -69,6 +69,15 @@ export const BankIcon = (props) => (
   </svg>
 );
 
+export const ExchangeIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M7 3 3 7l4 4" />
+    <path d="M3 7h13a4 4 0 0 1 4 4v1" />
+    <path d="M17 21l4-4-4-4" />
+    <path d="M21 17H8a4 4 0 0 1-4-4v-1" />
+  </svg>
+);
+
 export const BoltIcon = (props) => (
   <svg {...base} {...props}>
     <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />

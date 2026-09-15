@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { brand, indicativeRate } from '../brand.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
-import { BankIcon, PlusIcon, SendIcon, UserIcon, LogoutIcon, ExchangeIcon } from '../icons.jsx';
+import { BankIcon, PlusIcon, SendIcon, UserIcon, LogoutIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
 
@@ -92,16 +92,8 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
         </button>
       </div>
 
+      <div className="section-title">Today's rates</div>
       <div className="rate-board">
-        <div className="rate-board-head">
-          <span className="rate-board-icon">
-            <ExchangeIcon width={16} height={16} />
-          </span>
-          <div>
-            <div className="rate-title">Today's rates</div>
-            <div className="rate-subtitle">1 {brand.homeCurrency} equals</div>
-          </div>
-        </div>
         {corridors.map((c) => (
           <div className="rate-row" key={c.code}>
             <span className="pair">
@@ -109,8 +101,8 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
               <span>{c.name}</span>
             </span>
             <span className="value">
-              {fmt(getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency))}
-              <span className="currency-chip">{c.currency}</span>
+              1 {brand.homeCurrency} = {fmt(getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency))}{' '}
+              <span className="rate-currency">{c.currency}</span>
             </span>
           </div>
         ))}

@@ -703,11 +703,11 @@ h2 {
 }
 
 .section-title {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
   margin: 4px 0 -6px;
 }
 

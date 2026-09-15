@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { leanAofApi } from '../../leanAofApi.js';
+import { brand } from '../../brand.js';
 import { CheckIcon, ClockIcon, XIcon } from '../../icons.jsx';
 
 const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -52,7 +53,7 @@ export function TopupStatus({ paymentId, amount: initialAmount, userId, setError
         <div className={`status-icon ${kind}`}>{icon}</div>
         <h2>{title}</h2>
         <div style={{ fontSize: '1.8rem', fontWeight: 700 }}>{fmt(amount)} AED</div>
-        <div className="muted">to your Falcon balance</div>
+        <div className="muted">to your {brand.shortName} balance</div>
         <span className={`status-badge ${kind === 'success' ? 'success' : kind === 'fail' ? 'fail' : 'pending'}`}>
           {status.replace(/_/g, ' ')}
         </span>

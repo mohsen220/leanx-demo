@@ -4,7 +4,7 @@ import { brand } from '../brand.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// One form for both sign-up and sign-in — this is Falcon's own ledger only,
+// One form for both sign-up and sign-in — this is Meridian's own ledger only,
 // nothing here talks to Lean. That relationship starts later, the first
 // time this customer tops up (backend/src/routes/leanAof.js), which is the
 // point: Lean only enters the picture when money actually needs to move.

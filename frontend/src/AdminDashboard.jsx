@@ -5,9 +5,9 @@ import { brand } from './brand.js';
 import { initials, avatarColor, STATUS_LABEL, STATUS_CLASS } from './stores.js';
 import { BankIcon, SendIcon, CheckIcon, UserIcon, PlusIcon } from './icons.jsx';
 
-// Falcon's back-office view: the pooled Lean X wallet (real rail traffic, so
+// Meridian's back-office view: the pooled Lean X wallet (real rail traffic, so
 // it's fetched through api.js and does show up in the Lean X Developer
-// Console) alongside Falcon's own customer ledger (ledgerApi.js, which never
+// Console) alongside Meridian's own customer ledger (ledgerApi.js, which never
 // touches SwiftX). Built on the same design tokens as the customer app
 // (styles.css) rather than the Developer Console's engineer-facing look —
 // this page is read by ops staff, not developers.
@@ -180,7 +180,7 @@ export function AdminDashboard() {
                 </div>
                 <div className="ad-row-trailing">
                   <div className="ad-row-amount">{fmt(u.balance)} AED</div>
-                  <div className="ad-row-caption">Falcon balance</div>
+                  <div className="ad-row-caption">{brand.shortName} balance</div>
                 </div>
               </div>
             ))}

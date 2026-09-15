@@ -1,7 +1,7 @@
-// Falcon's own back-office data — customers, saved recipients, transactions.
+// Meridian's own back-office data — customers, saved recipients, transactions.
 // Deliberately NOT routed through logStore/api.js: it isn't SwiftX/Lean X
 // traffic, so it has no business appearing in the Lean X Developer Console,
-// which traces the rail, not Falcon's internal ledger.
+// which traces the rail, not Meridian's internal ledger.
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4100';
 
 async function ledgerRequest(path, options = {}) {
@@ -23,7 +23,7 @@ function qs(params) {
 export const ledgerApi = {
   getUser: (userId) => ledgerRequest(`/api/users/${userId}`),
   listUsers: () => ledgerRequest('/api/users'),
-  // Sign-up and sign-in in one call — a new email creates a Falcon account
+  // Sign-up and sign-in in one call — a new email creates a Meridian account
   // (ledger only, no Lean involved), an existing one checks the password.
   login: (email, password) =>
     ledgerRequest('/api/users/login', { method: 'POST', body: JSON.stringify({ email, password }) }),

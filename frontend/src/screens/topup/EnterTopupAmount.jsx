@@ -113,7 +113,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       </div>
 
       <div className="muted" style={{ textAlign: 'center' }}>
-        Add money to your Falcon balance from your own bank.
+        Add money to your {brand.shortName} balance from your own bank.
       </div>
 
       <div className="amount-input-wrap">

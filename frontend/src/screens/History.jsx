@@ -3,7 +3,7 @@ import { BankIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
 
-// Reads straight from Falcon's own ledger (passed down from App.jsx) rather
+// Reads straight from Meridian's own ledger (passed down from App.jsx) rather
 // than calling SwiftX's history endpoint itself — an exchange house's
 // transaction record is its own, not a live read-through of the rail. Two
 // transaction types share this list: remittances (SwiftX/Lean X) and

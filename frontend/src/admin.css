@@ -1,4 +1,4 @@
-/* Admin Dashboard — Falcon's own back-office view, built on the same design
+/* Admin Dashboard — Meridian's own back-office view, built on the same design
    tokens as the customer app (styles.css: --primary, --surface, --border,
    .status-badge, .avatar, ...) rather than the Developer Console's
    engineer-facing look. This page is read by ops staff, not developers. */
@@ -35,7 +35,7 @@ body:has(.ad-page) {
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  background: linear-gradient(135deg, #0f2f24, var(--primary));
+  background: linear-gradient(135deg, #1c1c1e, var(--primary));
   color: white;
   font-weight: 700;
   font-size: 0.85rem;
@@ -141,7 +141,7 @@ body:has(.ad-page) {
 }
 
 .ad-kpi-hero {
-  background: linear-gradient(135deg, #0f2f24, #14503a 60%, var(--primary));
+  background: linear-gradient(135deg, #1c1c1e, #2c2c2e 60%, var(--primary));
   border: none;
   color: white;
 }

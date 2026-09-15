@@ -1,5 +1,5 @@
 // Account-on-File (AoF) client — a standing bank consent, authorized once,
-// that lets Falcon initiate top-ups afterward without a fresh bank redirect
+// that lets Meridian initiate top-ups afterward without a fresh bank redirect
 // each time. This is the app's top-up rail (replaced an earlier Payment
 // Links/Sessions API attempt that reliably failed at the authorization step
 // on this sandbox app).

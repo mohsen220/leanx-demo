@@ -8,7 +8,7 @@ const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractio
 
 // The API needs the sender's KYC on every payment; the customer entered it
 // once at onboarding, so it's spread in from the stored profile here rather
-// than re-asked. Fields that only make sense in Falcon's own ledger (id,
+// than re-asked. Fields that only make sense in Meridian's own ledger (id,
 // balance, verifiedAt, createdAt) are stripped first — SwiftX has no use for them.
 function senderFields(sender) {
   const { id, balance, verifiedAt, createdAt, ...rest } = sender;
@@ -38,7 +38,7 @@ export function ReviewAndSend({ corridor, recipient, quote, purpose, sender, flo
         sender_relation: recipient.relation,
         remarks: purpose,
         // Underscore-prefixed: stripped by the backend before it talks to
-        // SwiftX, used only to write Falcon's own ledger (backend/src/db.js).
+        // SwiftX, used only to write Meridian's own ledger (backend/src/db.js).
         _userId: sender.id,
         _recipientId: recipient.id,
         _sourceAmount: quote.amount,

@@ -1,10 +1,10 @@
 // Customer-facing helpers for the exchange-house app. Recipients, the
-// sender's KYC profile, and transaction history now live in Falcon's own
+// sender's KYC profile, and transaction history now live in Meridian's own
 // backend ledger (see ledgerApi.js / backend/src/db.js) — this file keeps
 // only the pure, storage-free bits: enum data and display helpers, plus
 // which ledger customer this browser is currently "logged in" as.
 
-// Remembers which Falcon customer this browser is acting as — set once
+// Remembers which Meridian customer this browser is acting as — set once
 // onboarding creates a ledger user, cleared on log out. Nothing about Lean
 // lives here: that relationship starts later, on the customer's first top-up.
 const ACTIVE_USER_KEY = 'falcon_demo_active_user';

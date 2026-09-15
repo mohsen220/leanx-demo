@@ -23,14 +23,14 @@ const DEMO_CORRIDOR_CODES = ['IND'];
 const formatStatusTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function App() {
-  // Which Falcon ledger customer this browser is acting as — remembered in
+  // Which Meridian ledger customer this browser is acting as — remembered in
   // localStorage across reloads, null until onboarding creates one. This is
-  // Falcon's own concept entirely; it has nothing to do with Lean, which
+  // Meridian's own concept entirely; it has nothing to do with Lean, which
   // only enters the picture on this customer's first top-up.
   const [userId, setUserId] = useState(() => getActiveUserId());
   const [screen, setScreen] = useState('home');
   const [corridors, setCorridors] = useState([]);
-  // sender: the signed-in customer's KYC profile + Falcon balance, from Falcon's
+  // sender: the signed-in customer's KYC profile + Meridian balance, from Meridian's
   // own ledger (backend/src/db.js) — not from SwiftX, which never sees either.
   const [sender, setSender] = useState(null);
   const [recipients, setRecipients] = useState(null);
@@ -125,7 +125,7 @@ export default function App() {
     [corridors],
   );
 
-  // Recent transfers come from Falcon's own ledger, not a live SwiftX call —
+  // Recent transfers come from Meridian's own ledger, not a live SwiftX call —
   // an exchange house keeps its own transaction record independent of the
   // rail. Refetched on load and after every completed transfer.
   useEffect(() => {
@@ -154,7 +154,7 @@ export default function App() {
     return [...byAccount.values()];
   }, [recipients, displayCorridors]);
 
-  // Persists to Falcon's backend ledger (which itself dedupes by corridor +
+  // Persists to Meridian's backend ledger (which itself dedupes by corridor +
   // account number) and folds the canonical saved row back into local state.
   const upsertRecipient = async (recipient) => {
     try {
@@ -195,7 +195,7 @@ export default function App() {
 
   // The Developer and Admin tabs each open a full, separate desktop page
   // rather than a cramped screen inside the phone. Developer reads the
-  // cross-tab SwiftX/Lean X log (logStore.js); Admin reads Falcon's own
+  // cross-tab SwiftX/Lean X log (logStore.js); Admin reads Meridian's own
   // ledger (ledgerApi.js) — two different back-office audiences.
   const handleNavigate = (key) => {
     if (key === 'developer') {

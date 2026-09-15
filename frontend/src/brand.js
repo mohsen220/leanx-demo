@@ -2,11 +2,12 @@
 // never the brand the customer sees — so everything customer-facing reads from
 // here, and re-skinning the demo for a different prospect is a one-object change.
 //
-// "Falcon Exchange" is fictional (the falcon is the UAE's national symbol).
+// "Meridian Exchange" is fictional — a meridian being a line of longitude
+// fits a cross-border remittance house sending money along exactly that axis.
 export const brand = {
-  name: 'Falcon Exchange',
-  shortName: 'Falcon',
-  initials: 'FX',
+  name: 'Meridian Exchange',
+  shortName: 'Meridian',
+  initials: 'ME',
   tagline: 'Send money home in seconds',
   // Where the exchange house operates — drives the default source currency
   // and the sender's residency in the KYC profile.

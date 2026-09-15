@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: falcon-swiftx-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SWIFTX_BASE_URL
+        value: https://api.swiftxapptest.net/v2
+      - key: SWIFTX_HOST
+        value: https://api.swiftxapptest.net
+      - key: LEAN_ENV
+        value: sandbox
+      # Secrets — fill these in on the Render dashboard after the Blueprint
+      # is created (sync: false means Render prompts for them, never reads
+      # them from this file).
+      - key: SWIFTX_JWK
+        sync: false
+      - key: LEAN_CLIENT_ID
+        sync: false
+      - key: LEAN_CLIENT_SECRET
+        sync: false
+      - key: LEAN_APP_TOKEN
+        sync: false
+      - key: LEAN_WEBHOOK_SECRET
+        sync: false
+      # Set once the frontend service's URL is known (see README) — CORS
+      # only allows this one origin.
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+  - type: web
+    name: falcon-swiftx-frontend
+    env: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Set to the backend service's public URL (e.g. https://falcon-swiftx-backend.onrender.com)
+      # — baked in at build time, so changing it requires a redeploy.
+      - key: VITE_BACKEND_URL
+        sync: false

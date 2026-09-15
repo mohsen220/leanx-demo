@@ -1148,6 +1148,15 @@ code {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  transition: color 0.35s ease;
+}
+
+.rate-price.flash-up {
+  color: var(--success);
+}
+
+.rate-price.flash-down {
+  color: var(--danger);
 }
 
 .rate-change {

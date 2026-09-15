@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { brand, indicativeRate } from '../brand.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
+import { RateTickerRow } from '../components/RateTickerRow.jsx';
 import { BankIcon, PlusIcon, SendIcon, UserIcon, LogoutIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
@@ -94,35 +95,16 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
 
       <div className="section-title">Today's rates</div>
       <div className="rate-board">
-        {corridors.map((c) => {
-          const baseline = indicativeRate(c, brand.homeCurrency);
-          const live = getCachedRate(c.code);
-          const rate = live ?? baseline;
-          // No live SwiftX quote cached yet (see rateStore.js) — nothing to
-          // compare against, so the move is unknown rather than zero.
-          const movePct = live ? ((live - baseline) / baseline) * 100 : null;
-          const moveDirection = movePct === null ? 'flat' : movePct >= 0 ? 'up' : 'down';
-
-          return (
-            <div className="rate-row" key={c.code}>
-              <span className="pair">
-                <span className="flag-chip">{c.flag}</span>
-                <span className="rate-name-block">
-                  <span className="rate-name">{c.name}</span>
-                  <span className="rate-ticker">
-                    {brand.homeCurrency}/{c.currency}
-                  </span>
-                </span>
-              </span>
-              <span className="rate-price-block">
-                <span className="rate-price">{fmt(rate)}</span>
-                <span className={`rate-change ${moveDirection}`}>
-                  {movePct === null ? '—' : `${movePct >= 0 ? '+' : ''}${movePct.toFixed(2)}%`}
-                </span>
-              </span>
-            </div>
-          );
-        })}
+        {corridors.map((c) => (
+          <RateTickerRow
+            key={c.code}
+            flag={c.flag}
+            name={c.name}
+            base={brand.homeCurrency}
+            quote={c.currency}
+            anchorRate={getCachedRate(c.code) ?? indicativeRate(c, brand.homeCurrency)}
+          />
+        ))}
       </div>
 
       <div className="section-title">Send again</div>

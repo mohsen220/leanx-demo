@@ -14,16 +14,7 @@ export const leanAofRouter = Router();
 // for sandbox, would need a real per-customer value in production.
 const DEMO_GOVERNMENT_IDENTIFIER = { type: 'EMIRATES_ID', value: '784-1234-1234-1234' };
 
-// A consent is linked once and reused for every future top-up — it's
-// deliberately NOT tied to any single amount (Lean's `immediate_payment`
-// option can fuse consent + a first charge into one call, but that only
-// helps a brand new consent; skipping it keeps this function correct
-// whether it's creating fresh or reusing one from an earlier session).
-// Idempotent per user: once a consent exists, it's reused rather than
-// creating a new one on every call.
-async function ensureAofConsent(user, customerId, destinationId) {
-  if (user.aofConsentId) return { consentId: user.aofConsentId, status: user.aofConsentStatus };
-
+async function createAofConsent(user, customerId, destinationId) {
   const consent = await leanApiFetch('/consents/v1/account-on-file', {
     method: 'POST',
     body: JSON.stringify({
@@ -40,9 +31,34 @@ async function ensureAofConsent(user, customerId, destinationId) {
       government_identifier: DEMO_GOVERNMENT_IDENTIFIER,
     }),
   });
-
   db.users.update(user.id, { aofConsentId: consent.id, aofConsentStatus: consent.status });
+  return consent;
+}
+
+// A consent is linked once and reused for every future top-up — it's
+// deliberately NOT tied to any single amount (Lean's `immediate_payment`
+// option can fuse consent + a first charge into one call, but that only
+// helps a brand new consent; skipping it keeps this function correct
+// whether it's creating fresh or reusing one from an earlier session).
+// Idempotent per user: once a consent exists, it's reused rather than
+// creating a new one on every call.
+async function ensureAofConsent(user, customerId, destinationId) {
+  if (user.aofConsentId) return { consentId: user.aofConsentId, status: user.aofConsentStatus };
+  const consent = await createAofConsent(user, customerId, destinationId);
   return { consentId: consent.id, status: consent.status };
+}
+
+// Fetches the consent's real status from Lean rather than trusting the
+// locally cached one (see the route below for why). If the cached id no
+// longer resolves at all — e.g. leftover test data from a different sandbox
+// state — falls back to creating a fresh consent instead of hard-failing.
+async function getLiveConsent(user, customerId, destinationId, consentId) {
+  try {
+    return await leanApiFetch(`/consents/v1/${consentId}`);
+  } catch (err) {
+    if (err.status !== 404) throw err;
+    return createAofConsent(user, customerId, destinationId);
+  }
 }
 
 // Actually moves money against an already-AUTHORISED consent — no bank
@@ -80,11 +96,30 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
 
     const customerId = await ensureLeanCustomer(user);
     const destinationId = await ensureFalconDestination(user, customerId);
-    const { consentId, status } = await ensureAofConsent(user, customerId, destinationId);
+    const { consentId } = await ensureAofConsent(user, customerId, destinationId);
 
-    if (status === 'AUTHORISED') {
-      const payment = await chargeAofConsent(user, consentId, amount);
+    // Never trust the locally cached status here — it can go stale (e.g. a
+    // customer completed real bank authorization in an earlier session
+    // before this app ever got a chance to record it), and re-running
+    // Lean.authorizeConsent() on a consent that isn't AWAITING_AUTHORISATION
+    // anymore is rejected outright ("Consent status is not
+    // AWAITING_AUTHORISATION"). A live check avoids ever making that call.
+    const consent = await getLiveConsent(user, customerId, destinationId, consentId);
+    if (consent.status !== user.aofConsentStatus || consent.id !== user.aofConsentId) {
+      db.users.update(user.id, { aofConsentId: consent.id, aofConsentStatus: consent.status });
+    }
+
+    if (consent.status === 'AUTHORISED') {
+      const payment = await chargeAofConsent(user, consent.id, amount);
       return res.json({ mode: 'instant', paymentId: payment.id, status: payment.status });
+    }
+
+    if (consent.status !== 'AWAITING_AUTHORISATION') {
+      // REVOKED / REJECTED / EXPIRED / CONSUMED / SUSPENDED — none of these
+      // can be authorized again; a fresh consent would be needed. Out of
+      // scope to auto-recover here, so this surfaces clearly rather than
+      // retrying a call Lean will reject anyway.
+      return res.status(409).json({ error: `AoF consent is ${consent.status} — cannot top up` });
     }
 
     const { accessToken } = await getCustomerToken(customerId);
@@ -92,7 +127,7 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
       mode: 'authorize',
       appToken: leanConfig.appToken,
       customerId,
-      consentId,
+      consentId: consent.id,
       accessToken,
     });
   } catch (err) {

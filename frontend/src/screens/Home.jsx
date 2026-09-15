@@ -33,7 +33,12 @@ export function Home({ corridors, recipients, recentPayments, sender, onSendTo, 
         <div className="avatar-menu-wrap">
           <button
             className="avatar"
-            style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+            style={{
+              background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+              boxShadow: '0 4px 10px -3px rgba(91, 46, 191, 0.55)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Account menu"
           >

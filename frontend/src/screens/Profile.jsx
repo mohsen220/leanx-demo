@@ -75,7 +75,13 @@ export function Profile({ sender, onBack, onVerified, setError }) {
       <div className="status-hero" style={{ padding: '12px 8px 4px' }}>
         <div
           className="avatar"
-          style={{ width: 64, height: 64, fontSize: '1.3rem', background: 'var(--primary)' }}
+          style={{
+            width: 64,
+            height: 64,
+            fontSize: '1.3rem',
+            background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+            boxShadow: '0 6px 16px -4px rgba(91, 46, 191, 0.55)',
+          }}
         >
           {initials(sender.sender_name)}
         </div>

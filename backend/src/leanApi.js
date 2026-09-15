@@ -14,7 +14,7 @@ function truncate(value, max = 4000) {
 //
 // `scope` is either 'api' (default, backend-to-backend) or a customer_id
 // string, in which case a `customer.<id>` scoped token is minted instead.
-export async function leanRequest({ method = 'GET', path, query, body, scope = 'api' }) {
+export async function leanRequest({ method = 'GET', path, query, body, scope = 'api', headers = {} }) {
   const id = ++requestCounter;
   const accessToken =
     scope === 'api' ? await getApiToken() : (await getCustomerToken(scope)).accessToken;
@@ -37,6 +37,7 @@ export async function leanRequest({ method = 'GET', path, query, body, scope = '
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      ...headers,
     },
     body: hasBody ? JSON.stringify(body) : undefined,
   });
@@ -59,6 +60,7 @@ export async function leanApiFetch(path, options = {}) {
     method: options.method ?? 'GET',
     path,
     body: options.body ? JSON.parse(options.body) : undefined,
+    headers: options.headers,
   });
 
   if (!ok) {

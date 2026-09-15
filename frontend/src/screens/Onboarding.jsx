@@ -6,7 +6,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // One form for both sign-up and sign-in — this is Falcon's own ledger only,
 // nothing here talks to Lean. That relationship starts later, the first
-// time this customer tops up (backend/src/routes/leanPay.js), which is the
+// time this customer tops up (backend/src/routes/leanAof.js), which is the
 // point: Lean only enters the picture when money actually needs to move.
 export function Onboarding({ onCreated, setError }) {
   const [email, setEmail] = useState('');

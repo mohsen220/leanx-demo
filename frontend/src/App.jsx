@@ -27,12 +27,7 @@ export default function App() {
   // Falcon's own concept entirely; it has nothing to do with Lean, which
   // only enters the picture on this customer's first top-up.
   const [userId, setUserId] = useState(() => getActiveUserId());
-  // Set only when the browser comes back from a full-page redirect to Lean's
-  // hosted payment session — read once at startup, since that's the only
-  // moment this state can be true. Drives straight into TopUp's status step
-  // instead of restarting the amount/authorize steps the customer already did.
-  const [resumeTopupIntentId] = useState(() => localStorage.getItem('falcon_pending_topup'));
-  const [screen, setScreen] = useState(() => (localStorage.getItem('falcon_pending_topup') ? 'topup' : 'home'));
+  const [screen, setScreen] = useState('home');
   const [corridors, setCorridors] = useState([]);
   // sender: the signed-in customer's KYC profile + Falcon balance, from Falcon's
   // own ledger (backend/src/db.js) — not from SwiftX, which never sees either.
@@ -232,13 +227,7 @@ export default function App() {
             )}
 
             {ready && screen === 'topup' && (
-              <TopUp
-                userId={sender.id}
-                resumeIntentId={resumeTopupIntentId}
-                setError={setError}
-                onExit={() => setScreen('home')}
-                onComplete={onTopupComplete}
-              />
+              <TopUp userId={sender.id} setError={setError} onExit={() => setScreen('home')} onComplete={onTopupComplete} />
             )}
 
             {ready && screen === 'send' && (

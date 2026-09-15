@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import { EnterTopupAmount } from './topup/EnterTopupAmount.jsx';
-import { AuthorizeTopup } from './topup/AuthorizeTopup.jsx';
 import { TopupStatus } from './topup/TopupStatus.jsx';
 
-// Three steps: amount → authorize (a real redirect to Lean's hosted page,
-// not a modal) → poll to settlement. `resumeIntentId` lets App.jsx drop
-// straight into the status step when the customer lands back from that
-// redirect — the amount/authorize steps never re-run on return.
-export function TopUp({ userId, resumeIntentId, setError, onExit, onComplete }) {
-  const [step, setStep] = useState(resumeIntentId ? 'status' : 'amount');
+// Two steps: amount (which also handles first-time bank authorization via
+// the LinkSDK, inline — see EnterTopupAmount.jsx) → poll to settlement.
+// Unlike a redirect-based rail, AoF never leaves this page, so there's no
+// resume-after-redirect step to coordinate with App.jsx.
+export function TopUp({ userId, setError, onExit, onComplete }) {
+  const [step, setStep] = useState('amount');
   const [amount, setAmount] = useState(0);
-  const [link, setLink] = useState(null);
-  const [intentId, setIntentId] = useState(resumeIntentId ?? null);
+  const [paymentId, setPaymentId] = useState(null);
 
   if (step === 'amount') {
     return (
@@ -19,19 +17,14 @@ export function TopUp({ userId, resumeIntentId, setError, onExit, onComplete }) 
         userId={userId}
         setError={setError}
         onBack={onExit}
-        onIntentCreated={({ intentId: id, link: l, amount: a }) => {
-          setIntentId(id);
-          setLink(l);
+        onPaymentStarted={({ paymentId: id, amount: a }) => {
+          setPaymentId(id);
           setAmount(a);
-          setStep('authorize');
+          setStep('status');
         }}
       />
     );
   }
 
-  if (step === 'authorize') {
-    return <AuthorizeTopup amount={amount} intentId={intentId} link={link} onBack={() => setStep('amount')} />;
-  }
-
-  return <TopupStatus intentId={intentId} userId={userId} setError={setError} onDone={onComplete} />;
+  return <TopupStatus paymentId={paymentId} amount={amount} userId={userId} setError={setError} onDone={onComplete} />;
 }

@@ -1,6 +1,6 @@
 // Lean's Account Verification Service (AVS) — a third, distinct Lean
 // product (OKYC / Verify Suite) from Lean Pay and Lean X. Kept separate for
-// the same reason as leanPayApi.js: this isn't SwiftX/Lean X traffic, so it
+// the same reason as leanAofApi.js: this isn't SwiftX/Lean X traffic, so it
 // doesn't belong in that Developer Console's trace.
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4100';
 

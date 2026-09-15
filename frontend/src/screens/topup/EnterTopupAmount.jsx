@@ -1,24 +1,65 @@
 import { useState } from 'react';
-import { leanPayApi } from '../../leanPayApi.js';
+import { leanAofApi } from '../../leanAofApi.js';
 import { brand } from '../../brand.js';
-import { BackIcon } from '../../icons.jsx';
+import { BackIcon, BankIcon } from '../../icons.jsx';
 
 const QUICK_AMOUNTS = ['100', '250', '500', '1000'];
 
-// Creates the Lean Payment Link up front — the Authorize screen just needs
-// its hosted checkout URL to redirect to.
-export function EnterTopupAmount({ userId, setError, onBack, onIntentCreated }) {
+// Starts an Account-on-File top-up. Two outcomes from the backend:
+//  - mode: 'instant'   — customer already linked their bank; charged
+//    immediately, no bank interaction at all.
+//  - mode: 'authorize' — first top-up ever: opens Lean's own LinkSDK widget
+//    right here (no separate "authorize" screen — the widget itself is
+//    the authorization step), then charges the now-authorized consent the
+//    moment it reports success.
+export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted }) {
   const [amount, setAmount] = useState('500');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
     setLoading(true);
     try {
-      const { linkId, link } = await leanPayApi.createTopupIntent(userId, Number(amount));
-      onIntentCreated({ intentId: linkId, link, amount: Number(amount) });
+      const result = await leanAofApi.startTopup(userId, Number(amount));
+
+      if (result.mode === 'instant') {
+        onPaymentStarted({ paymentId: result.paymentId, amount: Number(amount) });
+        return;
+      }
+
+      const { appToken, customerId, consentId, accessToken } = result;
+      // Must be the EXACT string already whitelisted in the Lean Dashboard
+      // (Development → Integration settings) — no query string, no trailing-
+      // slash mismatch. Lean matches this exactly, not by prefix, so a URL
+      // that merely looks equivalent (e.g. with ?aof_status=... appended)
+      // gets rejected at the final redirect-back step rather than at setup,
+      // which shows up as "Something went wrong" only after the customer has
+      // already completed real bank authorization.
+      const redirectUrl = `${window.location.origin}/`;
+      window.Lean.authorizeConsent({
+        app_token: appToken,
+        customer_id: customerId,
+        consent_id: consentId,
+        access_token: accessToken,
+        sandbox: true,
+        success_redirect_url: redirectUrl,
+        fail_redirect_url: redirectUrl,
+        callback: async (payload) => {
+          if (payload.status !== 'SUCCESS') {
+            setLoading(false);
+            if (payload.status !== 'CANCELLED') setError(payload.message ?? `Authorization ${payload.status}`);
+            return;
+          }
+          try {
+            const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount));
+            onPaymentStarted({ paymentId, amount: Number(amount) });
+          } catch (err) {
+            setError(err.message);
+            setLoading(false);
+          }
+        },
+      });
     } catch (err) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -55,8 +96,16 @@ export function EnterTopupAmount({ userId, setError, onBack, onIntentCreated }) 
         ))}
       </div>
 
-      <button className="btn btn-primary" disabled={loading || !(Number(amount) > 0)} onClick={submit}>
-        {loading ? <span className="spinner" /> : 'Continue'}
+      <div className="k" style={{ padding: '4px 4px 6px' }}>
+        Payment method
+      </div>
+      <div className="card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <BankIcon width={20} height={20} />
+        <span style={{ fontWeight: 600 }}>Pay by Bank</span>
+      </div>
+
+      <button className="btn btn-primary" disabled={loading || !(Number(amount) > 0)} onClick={submit} style={{ marginTop: 12 }}>
+        {loading ? <span className="spinner" /> : `Pay ${amount || 0} AED`}
       </button>
 
       <div className="powered-by">

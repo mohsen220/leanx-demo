@@ -25,7 +25,7 @@ usersRouter.get('/users', (_req, res) => {
 
 // One endpoint for both sign-up and sign-in — purely Falcon's own ledger,
 // no Lean customer is created here. Lean only enters the picture the first
-// time this customer tops up (see routes/leanPay.js's ensureLeanCustomer).
+// time this customer tops up (see leanCustomerSetup.js's ensureLeanCustomer).
 // A brand-new email creates an account with balance 0 on purpose: nothing
 // to send until it's funded, which is the point of the demo.
 usersRouter.post('/users/login', (req, res) => {

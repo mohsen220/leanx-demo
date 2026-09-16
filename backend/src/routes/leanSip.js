@@ -46,11 +46,15 @@ leanSipRouter.post('/lean/sip/topup', async (req, res, next) => {
   }
 });
 
-// Polled by the frontend until the payment settles. Unlike AoF there's no
-// consent to list payments under — the intent IS the payment record — so
-// this just re-fetches the intent by id. Same ACCEPTED_BY_BANK /
-// PENDING_WITH_BANK / FAILED vocabulary as AoF/Payment-Links, so
-// TopupStatus.jsx needs no separate status handling for this rail.
+// Polled by the frontend until the payment settles. The intent itself has
+// no top-level status — confirmed live: GET /payments/v1/intents/{id}
+// returns a `payments` array (one entry per attempt against this intent),
+// and THAT entry's own `status` is where ACCEPTED_BY_BANK/FAILED actually
+// show up. An earlier version of this route read intent.status (which
+// doesn't exist) and silently fell back to PENDING_WITH_BANK forever, even
+// after the real payment had already settled — confirmed against the Lean
+// dashboard showing the payment as "Processed" while this endpoint kept
+// reporting pending.
 leanSipRouter.get('/lean/sip/topup/:intentId', async (req, res, next) => {
   try {
     const { userId } = req.query;
@@ -59,9 +63,10 @@ leanSipRouter.get('/lean/sip/topup/:intentId', async (req, res, next) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const intent = await leanApiFetch(`/payments/v1/intents/${intentId}`);
-    const status = intent.status ?? intent.payment?.status ?? 'PENDING_WITH_BANK';
-    const amount = intent.amount ?? intent.payment?.amount;
-    const currency = intent.currency ?? intent.payment?.currency ?? 'AED';
+    const payment = intent.payments?.[0];
+    const status = payment?.status ?? 'PENDING_WITH_BANK';
+    const amount = payment?.amount ?? intent.amount;
+    const currency = payment?.currency ?? intent.currency ?? 'AED';
 
     if (status === 'ACCEPTED_BY_BANK' && amount != null && !db.transactions.get(intentId)) {
       db.transactions.insert({

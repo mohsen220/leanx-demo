@@ -21,7 +21,7 @@ function classify(status) {
 // just what to show before the first poll resolves — the payment doesn't
 // show up in the consent's payment list for a moment after being charged,
 // so the backend's own response can't be relied on for that first paint.
-export function TopupStatus({ paymentId, amount: initialAmount, userId, method = 'aof', setError, onDone }) {
+export function TopupStatus({ paymentId, amount: initialAmount, userId, method = 'aof', groupId, setError, onDone }) {
   const [data, setData] = useState(null);
   const attemptRef = useRef(0);
 
@@ -31,7 +31,7 @@ export function TopupStatus({ paymentId, amount: initialAmount, userId, method =
     const delayFor = (n) => (n < 5 ? 1200 : n < 12 ? 3000 : 6000);
     const poll = async () => {
       try {
-        const result = await api.getTopup(paymentId, userId);
+        const result = await api.getTopup(paymentId, userId, groupId);
         if (cancelled) return;
         setData(result);
         if (!TERMINAL.has(result.status)) setTimeout(poll, delayFor(attemptRef.current++));
@@ -43,7 +43,7 @@ export function TopupStatus({ paymentId, amount: initialAmount, userId, method =
     return () => {
       cancelled = true;
     };
-  }, [paymentId, userId, method, setError]);
+  }, [paymentId, userId, method, groupId, setError]);
 
   const status = data?.status ?? 'PENDING_WITH_BANK';
   const amount = data?.amount ?? initialAmount;

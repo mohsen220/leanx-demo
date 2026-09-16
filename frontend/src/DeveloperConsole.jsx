@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
 import { getLog, subscribeLog, clearLog } from './logStore.js';
-import { BoltIcon } from './icons.jsx';
+import { BoltIcon, BankIcon } from './icons.jsx';
 
 const STEP_LABELS = {
   quote: 'Get quote',
@@ -13,13 +13,31 @@ const STEP_LABELS = {
   system: 'Health check',
   history: 'Load history',
   other: 'API call',
+  'aof-start': 'Start top-up (AoF)',
+  'aof-charge': 'Charge consent',
+  'aof-abandon': 'Abandon consent',
+  'aof-status': 'Track status',
+  'sip-start': 'Create payment intent (SIP)',
+  'sip-status': 'Track status',
 };
+
+const TOPUP_METHOD_LABEL = { aof: 'Account on File', sip: 'Single Instant Payment' };
 
 function classifyGroup(groupId) {
   if (!groupId) return 'ungrouped';
   if (groupId.startsWith('home-')) return 'home-visit';
   if (groupId.startsWith('history-')) return 'history-visit';
+  if (groupId.startsWith('topup-')) return 'topup';
   return 'transfer';
+}
+
+// AoF vs SIP, inferred from whichever categories actually show up in the
+// group — cheaper than threading a separate "method" field through every
+// call site just for the console's own display.
+function topupMethodOf(calls) {
+  if (calls.some((c) => c.category?.startsWith('aof'))) return 'aof';
+  if (calls.some((c) => c.category?.startsWith('sip'))) return 'sip';
+  return null;
 }
 
 function statusClass(status) {
@@ -47,6 +65,16 @@ function summarize(call) {
       return Array.isArray(p) ? `${p.length} record${p.length === 1 ? '' : 's'}` : null;
     case 'corridors':
       return Array.isArray(p) ? `${p.length} corridors` : null;
+    case 'aof-start':
+      return p.mode === 'instant' ? `instant — ${p.status}` : 'needs authorization — opening LinkSDK';
+    case 'aof-charge':
+    case 'aof-status':
+    case 'sip-status':
+      return p.status ? `${p.status}` : null;
+    case 'aof-abandon':
+      return p.ok ? 'consent abandoned' : null;
+    case 'sip-start':
+      return p.paymentIntentId ? `intent ${p.paymentIntentId.slice(0, 8)}… — opening LinkSDK` : null;
     default:
       return null;
   }
@@ -112,12 +140,14 @@ function buildGroups(calls) {
     const kind = classifyGroup(id);
     const country = chronological.map((c) => c.body?.country ?? c.payload?.country).find(Boolean);
     const status = [...chronological].reverse().map((c) => c.payload?.status).find(Boolean);
+    const method = kind === 'topup' ? topupMethodOf(chronological) : null;
     return {
       id,
       kind,
       calls: chronological,
       country,
       status,
+      method,
       startTime: chronological[0]?.time,
       endTime: chronological[chronological.length - 1]?.time,
     };
@@ -125,7 +155,8 @@ function buildGroups(calls) {
   built.sort((a, b) => b.startTime - a.startTime);
   return {
     transferGroups: built.filter((g) => g.kind === 'transfer'),
-    bgGroups: built.filter((g) => g.kind !== 'transfer'),
+    topupGroups: built.filter((g) => g.kind === 'topup'),
+    bgGroups: built.filter((g) => g.kind !== 'transfer' && g.kind !== 'topup'),
     standalone: flat,
   };
 }
@@ -147,19 +178,20 @@ export function DeveloperConsole() {
   }, []);
 
   const corridorByCode = useMemo(() => Object.fromEntries(corridors.map((c) => [c.code, c])), [corridors]);
-  const { transferGroups, bgGroups, standalone } = useMemo(() => buildGroups(calls), [calls]);
+  const { transferGroups, topupGroups, bgGroups, standalone } = useMemo(() => buildGroups(calls), [calls]);
 
   const q = search.trim().toLowerCase();
   const haystackOf = (group) => {
     const corridor = corridorByCode[group.country];
-    return [corridor?.name, corridor?.code, ...group.calls.map((c) => `${c.path} ${JSON.stringify(c.body ?? '')} ${JSON.stringify(c.payload ?? '')}`)]
+    return [corridor?.name, corridor?.code, group.method, ...group.calls.map((c) => `${c.path} ${JSON.stringify(c.body ?? '')} ${JSON.stringify(c.payload ?? '')}`)]
       .join(' ')
       .toLowerCase();
   };
   const visibleTransfers = q ? transferGroups.filter((g) => haystackOf(g).includes(q)) : transferGroups;
+  const visibleTopups = q ? topupGroups.filter((g) => haystackOf(g).includes(q)) : topupGroups;
   const visibleBg = q ? bgGroups.filter((g) => haystackOf(g).includes(q)) : bgGroups;
 
-  const selectedGroup = [...transferGroups, ...bgGroups].find((g) => g.id === selectedId) ?? null;
+  const selectedGroup = [...transferGroups, ...topupGroups, ...bgGroups].find((g) => g.id === selectedId) ?? null;
   const standaloneSelected = selectedId === '__standalone__';
 
   const toggleStep = (id) =>
@@ -177,8 +209,9 @@ export function DeveloperConsole() {
       total: calls.length,
       successRate: withStatus.length ? Math.round((ok / withStatus.length) * 100) : null,
       transfers: transferGroups.length,
+      topups: topupGroups.length,
     };
-  }, [calls, transferGroups]);
+  }, [calls, transferGroups, topupGroups]);
 
   const renderTrace = (title, icon, statusPill, traceCalls) => {
     const steps = collapseConsecutivePolls(traceCalls);
@@ -310,6 +343,10 @@ export function DeveloperConsole() {
           <span className="lbl">Transfers traced</span>
         </div>
         <div className="dc-stat">
+          <span className="n">{stats.topups}</span>
+          <span className="lbl">Top-ups traced</span>
+        </div>
+        <div className="dc-stat">
           <span className="n">{stats.total}</span>
           <span className="lbl">Total API calls</span>
         </div>
@@ -347,6 +384,27 @@ export function DeveloperConsole() {
             );
           })}
 
+          <div className="dc-section-label">Top-ups — AoF &amp; SIP ({visibleTopups.length})</div>
+          {visibleTopups.length === 0 && (
+            <div className="dc-empty-note">No top-ups yet. Top up your balance in the app to see one traced here, live.</div>
+          )}
+          {visibleTopups.map((group) => (
+            <button
+              key={group.id}
+              className={`dc-journey-card ${selectedId === group.id ? 'selected' : ''}`}
+              onClick={() => setSelectedId(group.id)}
+            >
+              <div className="dc-journey-top">
+                <BankIcon width={16} height={16} />
+                <span className="name">{group.method ? TOPUP_METHOD_LABEL[group.method] : 'Top-up'}</span>
+                <span className={`dc-status-pill ${group.status ?? 'pending'}`}>{group.status ?? 'in progress'}</span>
+              </div>
+              <div className="dc-journey-meta">
+                {new Date(group.startTime).toLocaleTimeString()} · {group.calls.length} calls · {formatDuration(group.endTime - group.startTime)}
+              </div>
+            </button>
+          ))}
+
           <button className={`dc-bg-toggle ${bgOpen ? 'open' : ''}`} onClick={() => setBgOpen((v) => !v)}>
             <svg className="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <path d="M9 6l6 6-6 6" />
@@ -382,7 +440,7 @@ export function DeveloperConsole() {
         <section className="dc-trace">
           {!selectedGroup && !standaloneSelected && (
             <div className="dc-trace-empty">
-              Select a transfer on the left to see every API call it took to complete — in order, with the full request and response for each step.
+              Select a transfer or top-up on the left to see every API call it took to complete — in order, with the full request and response for each step.
             </div>
           )}
 
@@ -396,7 +454,17 @@ export function DeveloperConsole() {
             )}
 
           {selectedGroup &&
+            selectedGroup.kind === 'topup' &&
+            renderTrace(
+              selectedGroup.method ? TOPUP_METHOD_LABEL[selectedGroup.method] : 'Top-up',
+              null,
+              <span className={`dc-status-pill ${selectedGroup.status ?? 'pending'}`}>{selectedGroup.status ?? 'in progress'}</span>,
+              selectedGroup.calls,
+            )}
+
+          {selectedGroup &&
             selectedGroup.kind !== 'transfer' &&
+            selectedGroup.kind !== 'topup' &&
             renderTrace(selectedGroup.kind === 'home-visit' ? 'Home refresh' : 'History visit', null, null, selectedGroup.calls)}
 
           {standaloneSelected && renderTrace('Other (uncorrelated) calls', null, null, standalone)}

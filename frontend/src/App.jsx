@@ -115,9 +115,9 @@ export default function App() {
       }
       // The consent should now be AUTHORISED, so this charges it for real.
       leanAofApi
-        .chargeAfterAuthorization(pending.userId, pending.amount)
+        .chargeAfterAuthorization(pending.userId, pending.amount, pending.groupId)
         .then(({ paymentId }) => {
-          setResumeTopup({ paymentId, amount: pending.amount, method: 'aof' });
+          setResumeTopup({ paymentId, amount: pending.amount, method: 'aof', groupId: pending.groupId });
           setScreen('topup');
         })
         .catch((err) => setError(err.message));
@@ -138,9 +138,14 @@ export default function App() {
         console.log('[lean-sip] pending topup belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
         return;
       }
-      // Unlike AoF, SIP's Lean.pay() already IS the payment — nothing left
-      // to charge, just resume polling the intent for settlement.
-      setResumeTopup({ paymentId: pending.paymentIntentId, amount: pending.amount, method: 'sip' });
+      // Unlike AoF, SIP's Lean.checkout() already IS the payment — nothing
+      // left to charge, just resume polling the intent for settlement.
+      setResumeTopup({
+        paymentId: pending.paymentIntentId,
+        amount: pending.amount,
+        method: 'sip',
+        groupId: pending.groupId,
+      });
       setScreen('topup');
     }
   }, [sender]);
@@ -305,6 +310,7 @@ export default function App() {
                 resumePaymentId={resumeTopup?.paymentId}
                 resumeAmount={resumeTopup?.amount}
                 resumeMethod={resumeTopup?.method}
+                resumeGroupId={resumeTopup?.groupId}
                 setError={setError}
                 onExit={() => setScreen('home')}
                 onComplete={onTopupComplete}

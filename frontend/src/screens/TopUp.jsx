@@ -4,15 +4,19 @@ import { TopupStatus } from './topup/TopupStatus.jsx';
 
 // Two steps: amount (which also handles first-time bank authorization via
 // the LinkSDK, inline — see EnterTopupAmount.jsx) → poll to settlement.
-// `resumePaymentId`/`resumeAmount`/`resumeMethod` let App.jsx drop straight
-// into the status step after a real bank redirect reloads the whole app —
-// see the localStorage handoff in EnterTopupAmount.jsx and the pickup in
-// App.jsx. `method` ('aof' | 'sip') decides which rail TopupStatus polls.
-export function TopUp({ userId, resumePaymentId, resumeAmount, resumeMethod, setError, onExit, onComplete }) {
+// `resumePaymentId`/`resumeAmount`/`resumeMethod`/`resumeGroupId` let
+// App.jsx drop straight into the status step after a real bank redirect
+// reloads the whole app — see the localStorage handoff in
+// EnterTopupAmount.jsx and the pickup in App.jsx. `method` ('aof' | 'sip')
+// decides which rail TopupStatus polls; `groupId` keeps every call this
+// top-up makes (before AND after the redirect) tracing as one journey in
+// the Developer Console.
+export function TopUp({ userId, resumePaymentId, resumeAmount, resumeMethod, resumeGroupId, setError, onExit, onComplete }) {
   const [step, setStep] = useState(resumePaymentId ? 'status' : 'amount');
   const [amount, setAmount] = useState(resumeAmount ?? 0);
   const [paymentId, setPaymentId] = useState(resumePaymentId ?? null);
   const [method, setMethod] = useState(resumeMethod ?? 'aof');
+  const [groupId, setGroupId] = useState(resumeGroupId ?? null);
 
   if (step === 'amount') {
     return (
@@ -20,10 +24,11 @@ export function TopUp({ userId, resumePaymentId, resumeAmount, resumeMethod, set
         userId={userId}
         setError={setError}
         onBack={onExit}
-        onPaymentStarted={({ paymentId: id, amount: a, method: m }) => {
+        onPaymentStarted={({ paymentId: id, amount: a, method: m, groupId: g }) => {
           setPaymentId(id);
           setAmount(a);
           setMethod(m);
+          setGroupId(g);
           setStep('status');
         }}
       />
@@ -35,6 +40,7 @@ export function TopUp({ userId, resumePaymentId, resumeAmount, resumeMethod, set
       paymentId={paymentId}
       amount={amount}
       method={method}
+      groupId={groupId}
       userId={userId}
       setError={setError}
       onDone={onComplete}

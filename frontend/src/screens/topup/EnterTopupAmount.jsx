@@ -23,12 +23,17 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
   const [amount, setAmount] = useState('500');
   const [method, setMethod] = useState('aof');
   const [loading, setLoading] = useState(false);
+  // One id per attempt, so every call it takes (start, charge/checkout,
+  // status polls) groups together as one journey in the Developer Console —
+  // same pattern as SendFlow.jsx's flowId. Prefixed so the console can tell
+  // a top-up journey apart from a transfer at a glance.
+  const [topupGroupId] = useState(() => `topup-${crypto.randomUUID()}`);
 
   const submitAof = async () => {
-    const result = await leanAofApi.startTopup(userId, Number(amount));
+    const result = await leanAofApi.startTopup(userId, Number(amount), topupGroupId);
 
     if (result.mode === 'instant') {
-      onPaymentStarted({ paymentId: result.paymentId, amount: Number(amount), method: 'aof' });
+      onPaymentStarted({ paymentId: result.paymentId, amount: Number(amount), method: 'aof', groupId: topupGroupId });
       return;
     }
 
@@ -37,7 +42,12 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
     // Persisted before handing off to the bank, since this whole JS context
     // (including the callback below) can be wiped by a real redirect before
     // it ever gets to fire — picked back up by App.jsx on the next load.
-    localStorage.setItem('falcon_pending_aof_charge', JSON.stringify({ userId, amount: Number(amount) }));
+    // groupId travels with it so calls made after the redirect still join
+    // the same Developer Console journey as the ones made before it.
+    localStorage.setItem(
+      'falcon_pending_aof_charge',
+      JSON.stringify({ userId, amount: Number(amount), groupId: topupGroupId }),
+    );
     console.log('[lean-aof] persisted pending charge before authorization:', localStorage.getItem('falcon_pending_aof_charge'));
 
     window.Lean.authorizeConsent({
@@ -82,8 +92,8 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
 
         try {
           localStorage.removeItem('falcon_pending_aof_charge');
-          const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount));
-          onPaymentStarted({ paymentId, amount: Number(amount), method: 'aof' });
+          const { paymentId } = await leanAofApi.chargeAfterAuthorization(userId, Number(amount), topupGroupId);
+          onPaymentStarted({ paymentId, amount: Number(amount), method: 'aof', groupId: topupGroupId });
         } catch (err) {
           setError(err.message);
           setLoading(false);
@@ -93,11 +103,18 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
   };
 
   const submitSip = async () => {
-    const { appToken, customerId, paymentIntentId, accessToken } = await leanSipApi.startTopup(userId, Number(amount));
+    const { appToken, customerId, paymentIntentId, accessToken } = await leanSipApi.startTopup(
+      userId,
+      Number(amount),
+      topupGroupId,
+    );
 
     // Same redirect-survival handoff as AoF above — SIP's Lean.checkout() is
     // just as much a real top-level navigation to the bank and back.
-    localStorage.setItem('falcon_pending_sip_topup', JSON.stringify({ userId, amount: Number(amount), paymentIntentId }));
+    localStorage.setItem(
+      'falcon_pending_sip_topup',
+      JSON.stringify({ userId, amount: Number(amount), paymentIntentId, groupId: topupGroupId }),
+    );
     console.log('[lean-sip] persisted pending topup before authorization:', localStorage.getItem('falcon_pending_sip_topup'));
 
     // Per Lean's own SIP flow (docs.leantech.me/docs/getting-started-with-
@@ -132,7 +149,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         }
 
         localStorage.removeItem('falcon_pending_sip_topup');
-        onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 'sip' });
+        onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 'sip', groupId: topupGroupId });
       },
     });
   };

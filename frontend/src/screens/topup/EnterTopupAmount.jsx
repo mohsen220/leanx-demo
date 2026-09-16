@@ -95,12 +95,16 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
   const submitSip = async () => {
     const { appToken, customerId, paymentIntentId, accessToken } = await leanSipApi.startTopup(userId, Number(amount));
 
-    // Same redirect-survival handoff as AoF above — SIP's Lean.pay() is just
-    // as much a real top-level navigation to the bank and back.
+    // Same redirect-survival handoff as AoF above — SIP's Lean.checkout() is
+    // just as much a real top-level navigation to the bank and back.
     localStorage.setItem('falcon_pending_sip_topup', JSON.stringify({ userId, amount: Number(amount), paymentIntentId }));
     console.log('[lean-sip] persisted pending topup before authorization:', localStorage.getItem('falcon_pending_sip_topup'));
 
-    window.Lean.pay({
+    // Per Lean's own SIP flow (docs.leantech.me/docs/getting-started-with-
+    // single-instant-payments): create the intent, then LinkSDK's
+    // checkout(payment_intent_id) — not pay(), which is for a standalone
+    // payment source rather than an Open Finance SIP intent.
+    window.Lean.checkout({
       app_token: appToken,
       customer_id: customerId,
       payment_intent_id: paymentIntentId,
@@ -111,10 +115,10 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       // Same lesson as AoF's authorizeConsent callback: only SUCCESS and
       // CANCELLED are treated as final, everything else is logged and
       // ignored in case a real bank redirect is still coming. Unlike AoF,
-      // SUCCESS here needs no separate "charge" call — pay() already IS the
-      // payment — so this just starts polling the intent for settlement.
+      // SUCCESS here needs no separate "charge" call — checkout() already IS
+      // the payment — so this just starts polling the intent for settlement.
       callback: (payload) => {
-        console.log('[lean-sip] pay callback:', payload);
+        console.log('[lean-sip] checkout callback:', payload);
 
         if (payload.status === 'CANCELLED') {
           localStorage.removeItem('falcon_pending_sip_topup');
@@ -171,8 +175,8 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       <label className="field">
         Payment method
         <select value={method} onChange={(e) => setMethod(e.target.value)}>
-          <option value="aof">Account on File — link once, then instant top-ups</option>
-          <option value="sip">Pay by Bank — one-off payment, bank login each time</option>
+          <option value="aof">AoF - Account on File</option>
+          <option value="sip">SIP - Single Instant Payment</option>
         </select>
       </label>
 

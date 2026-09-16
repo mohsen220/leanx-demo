@@ -21,9 +21,14 @@ function classify(status) {
 // just what to show before the first poll resolves — the payment doesn't
 // show up in the consent's payment list for a moment after being charged,
 // so the backend's own response can't be relied on for that first paint.
-export function TopupStatus({ paymentId, amount: initialAmount, userId, method = 'aof', groupId, setError, onDone }) {
+// `autoAdvance` is set when the customer just saw Lean's own captureRedirect
+// outcome screen (App.jsx) — requiring a second "Done" tap here for the same
+// success reads as a redundant confirmation, so this skips straight past it.
+// Scoped to success only: a failure still needs the customer's attention.
+export function TopupStatus({ paymentId, amount: initialAmount, userId, method = 'aof', groupId, autoAdvance, setError, onDone }) {
   const [data, setData] = useState(null);
   const attemptRef = useRef(0);
+  const advancedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +53,14 @@ export function TopupStatus({ paymentId, amount: initialAmount, userId, method =
   const status = data?.status ?? 'PENDING_WITH_BANK';
   const amount = data?.amount ?? initialAmount;
   const kind = classify(status);
+
+  useEffect(() => {
+    if (autoAdvance && kind === 'success' && !advancedRef.current) {
+      advancedRef.current = true;
+      onDone();
+    }
+  }, [autoAdvance, kind, onDone]);
+
   const icon = kind === 'success' ? <CheckIcon /> : kind === 'fail' ? <XIcon /> : <ClockIcon />;
   const title = kind === 'success' ? 'Top-up complete' : kind === 'fail' ? 'Top-up failed' : 'Waiting for your bank…';
 

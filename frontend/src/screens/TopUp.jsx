@@ -10,8 +10,19 @@ import { TopupStatus } from './topup/TopupStatus.jsx';
 // EnterTopupAmount.jsx and the pickup in App.jsx. `method` ('aof' | 'sip')
 // decides which rail TopupStatus polls; `groupId` keeps every call this
 // top-up makes (before AND after the redirect) tracing as one journey in
-// the Developer Console.
-export function TopUp({ userId, resumePaymentId, resumeAmount, resumeMethod, resumeGroupId, setError, onExit, onComplete }) {
+// the Developer Console. `resumeAutoAdvance` is set when the customer just
+// saw Lean's own captureRedirect outcome screen — see TopupStatus.jsx.
+export function TopUp({
+  userId,
+  resumePaymentId,
+  resumeAmount,
+  resumeMethod,
+  resumeGroupId,
+  resumeAutoAdvance,
+  setError,
+  onExit,
+  onComplete,
+}) {
   const [step, setStep] = useState(resumePaymentId ? 'status' : 'amount');
   const [amount, setAmount] = useState(resumeAmount ?? 0);
   const [paymentId, setPaymentId] = useState(resumePaymentId ?? null);
@@ -42,6 +53,7 @@ export function TopUp({ userId, resumePaymentId, resumeAmount, resumeMethod, res
       method={method}
       groupId={groupId}
       userId={userId}
+      autoAdvance={resumeAutoAdvance}
       setError={setError}
       onDone={onComplete}
     />

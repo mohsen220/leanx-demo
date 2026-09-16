@@ -171,11 +171,20 @@ export default function App() {
       // regardless of what it reports — the consent should now be
       // AUTHORISED either way, and our own poll of the charge stays the
       // actual source of truth for crediting the balance.
-      captureLeanRedirect(pending).then(() => {
+      captureLeanRedirect(pending).then((captureResult) => {
         leanAofApi
           .chargeAfterAuthorization(pending.userId, pending.amount, pending.groupId)
           .then(({ paymentId }) => {
-            setResumeTopup({ paymentId, amount: pending.amount, method: 'aof', groupId: pending.groupId });
+            setResumeTopup({
+              paymentId,
+              amount: pending.amount,
+              method: 'aof',
+              groupId: pending.groupId,
+              // Lean's captureRedirect screen already told the customer the
+              // bank step succeeded — requiring a second "Done" tap on our
+              // own success screen for the same event reads as redundant.
+              autoAdvance: captureResult != null,
+            });
             setScreen('topup');
           })
           .catch((err) => setError(err.message));
@@ -197,7 +206,7 @@ export default function App() {
         console.log('[lean-sip] pending topup belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
         return;
       }
-      captureLeanRedirect(pending).then(() => {
+      captureLeanRedirect(pending).then((captureResult) => {
         // Unlike AoF, SIP's Lean.checkout() already IS the payment — nothing
         // left to charge, just resume polling the intent for settlement.
         setResumeTopup({
@@ -205,6 +214,7 @@ export default function App() {
           amount: pending.amount,
           method: 'sip',
           groupId: pending.groupId,
+          autoAdvance: captureResult != null,
         });
         setScreen('topup');
       });
@@ -372,6 +382,7 @@ export default function App() {
                 resumeAmount={resumeTopup?.amount}
                 resumeMethod={resumeTopup?.method}
                 resumeGroupId={resumeTopup?.groupId}
+                resumeAutoAdvance={resumeTopup?.autoAdvance}
                 setError={setError}
                 onExit={() => setScreen('home')}
                 onComplete={onTopupComplete}

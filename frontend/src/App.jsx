@@ -28,6 +28,47 @@ const TICKER_CORRIDOR_CODES = ['IND', 'PAK', 'NGA'];
 
 const formatStatusTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
+// Open Finance only — both our top-up rails qualify (AoF and SIP both leave
+// the app to authorize at the bank; RE payments never would, so this
+// wouldn't apply there). When the customer finishes at their bank, Lean
+// sends them back to success_redirect_url/fail_redirect_url with
+// bank_identifier/consent_attempt_id/customer_id/granular_status_code/
+// status_additional_info appended as query params. Lean.captureRedirect()
+// is purely presentational — it renders a proper outcome screen instead of
+// dumping the customer on a bare URL, and does NOT complete or confirm the
+// payment itself (that's server-side, via our own polling below) — so this
+// runs before, not instead of, the existing charge/resume logic, regardless
+// of what it reports. `pending` is one of the localStorage payloads
+// EnterTopupAmount.jsx persists (falcon_pending_aof_charge/_sip_topup) —
+// used for the appToken/customerId/accessToken this needs, not persisted
+// separately. Resolves immediately (no-op) if the URL carries none of
+// Lean's params, e.g. the page was reloaded for some other reason.
+function captureLeanRedirect(pending) {
+  const params = new URLSearchParams(window.location.search);
+  const consentAttemptId = params.get('consent_attempt_id');
+  if (!consentAttemptId || !window.Lean?.captureRedirect) return Promise.resolve(null);
+
+  // Strip these from the URL now so a later refresh doesn't reprocess them.
+  window.history.replaceState({}, '', window.location.pathname);
+
+  return new Promise((resolve) => {
+    window.Lean.captureRedirect({
+      app_token: pending.appToken,
+      customer_id: params.get('customer_id') ?? pending.customerId,
+      consent_attempt_id: consentAttemptId,
+      bank_identifier: params.get('bank_identifier'),
+      granular_status_code: params.get('granular_status_code'),
+      status_additional_info: params.get('status_additional_info'),
+      access_token: pending.accessToken,
+      sandbox: true,
+      callback: (payload) => {
+        console.log('[lean] captureRedirect callback:', payload);
+        resolve(payload);
+      },
+    });
+  });
+}
+
 export default function App() {
   // Which Meridian ledger customer this browser is acting as — remembered in
   // localStorage across reloads, null until onboarding creates one. This is
@@ -113,14 +154,20 @@ export default function App() {
         console.log('[lean-aof] pending charge belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
         return;
       }
-      // The consent should now be AUTHORISED, so this charges it for real.
-      leanAofApi
-        .chargeAfterAuthorization(pending.userId, pending.amount, pending.groupId)
-        .then(({ paymentId }) => {
-          setResumeTopup({ paymentId, amount: pending.amount, method: 'aof', groupId: pending.groupId });
-          setScreen('topup');
-        })
-        .catch((err) => setError(err.message));
+      // Show Lean's own outcome screen first if we genuinely just came back
+      // from a redirect (captureLeanRedirect no-ops otherwise), then charge
+      // regardless of what it reports — the consent should now be
+      // AUTHORISED either way, and our own poll of the charge stays the
+      // actual source of truth for crediting the balance.
+      captureLeanRedirect(pending).then(() => {
+        leanAofApi
+          .chargeAfterAuthorization(pending.userId, pending.amount, pending.groupId)
+          .then(({ paymentId }) => {
+            setResumeTopup({ paymentId, amount: pending.amount, method: 'aof', groupId: pending.groupId });
+            setScreen('topup');
+          })
+          .catch((err) => setError(err.message));
+      });
       return;
     }
 
@@ -138,15 +185,17 @@ export default function App() {
         console.log('[lean-sip] pending topup belongs to a different user, skipping:', pending.userId, 'vs', sender.id);
         return;
       }
-      // Unlike AoF, SIP's Lean.checkout() already IS the payment — nothing
-      // left to charge, just resume polling the intent for settlement.
-      setResumeTopup({
-        paymentId: pending.paymentIntentId,
-        amount: pending.amount,
-        method: 'sip',
-        groupId: pending.groupId,
+      captureLeanRedirect(pending).then(() => {
+        // Unlike AoF, SIP's Lean.checkout() already IS the payment — nothing
+        // left to charge, just resume polling the intent for settlement.
+        setResumeTopup({
+          paymentId: pending.paymentIntentId,
+          amount: pending.amount,
+          method: 'sip',
+          groupId: pending.groupId,
+        });
+        setScreen('topup');
       });
-      setScreen('topup');
     }
   }, [sender]);
 

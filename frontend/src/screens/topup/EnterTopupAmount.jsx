@@ -44,9 +44,11 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
     // it ever gets to fire — picked back up by App.jsx on the next load.
     // groupId travels with it so calls made after the redirect still join
     // the same Developer Console journey as the ones made before it.
+    // appToken/customerId/accessToken travel with it too — App.jsx needs
+    // them to call Lean.captureRedirect() on return (see below).
     localStorage.setItem(
       'falcon_pending_aof_charge',
-      JSON.stringify({ userId, amount: Number(amount), groupId: topupGroupId }),
+      JSON.stringify({ userId, amount: Number(amount), groupId: topupGroupId, appToken, customerId, accessToken }),
     );
     console.log('[lean-aof] persisted pending charge before authorization:', localStorage.getItem('falcon_pending_aof_charge'));
 
@@ -111,9 +113,19 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
 
     // Same redirect-survival handoff as AoF above — SIP's Lean.checkout() is
     // just as much a real top-level navigation to the bank and back.
+    // appToken/customerId/accessToken travel with it too — App.jsx needs
+    // them to call Lean.captureRedirect() on return (see below).
     localStorage.setItem(
       'falcon_pending_sip_topup',
-      JSON.stringify({ userId, amount: Number(amount), paymentIntentId, groupId: topupGroupId }),
+      JSON.stringify({
+        userId,
+        amount: Number(amount),
+        paymentIntentId,
+        groupId: topupGroupId,
+        appToken,
+        customerId,
+        accessToken,
+      }),
     );
     console.log('[lean-sip] persisted pending topup before authorization:', localStorage.getItem('falcon_pending_sip_topup'));
 

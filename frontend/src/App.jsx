@@ -51,16 +51,28 @@ function captureLeanRedirect(pending) {
   // Strip these from the URL now so a later refresh doesn't reprocess them.
   window.history.replaceState({}, '', window.location.pathname);
 
+  // URLSearchParams.get() returns null (not undefined) for a param that
+  // isn't present, and the SDK validates strictly — it rejects a literal
+  // null with CONFIG_ERROR__INVALID_PARAM_TYPE instead of treating it as
+  // "not provided" — so any param actually missing from the URL must be
+  // omitted from the config entirely, not passed through as null.
+  const config = {
+    app_token: pending.appToken,
+    customer_id: params.get('customer_id') ?? pending.customerId,
+    consent_attempt_id: consentAttemptId,
+    bank_identifier: params.get('bank_identifier'),
+    granular_status_code: params.get('granular_status_code'),
+    status_additional_info: params.get('status_additional_info'),
+    access_token: pending.accessToken,
+    sandbox: true,
+  };
+  for (const key of Object.keys(config)) {
+    if (config[key] == null) delete config[key];
+  }
+
   return new Promise((resolve) => {
     window.Lean.captureRedirect({
-      app_token: pending.appToken,
-      customer_id: params.get('customer_id') ?? pending.customerId,
-      consent_attempt_id: consentAttemptId,
-      bank_identifier: params.get('bank_identifier'),
-      granular_status_code: params.get('granular_status_code'),
-      status_additional_info: params.get('status_additional_info'),
-      access_token: pending.accessToken,
-      sandbox: true,
+      ...config,
       callback: (payload) => {
         console.log('[lean] captureRedirect callback:', payload);
         resolve(payload);

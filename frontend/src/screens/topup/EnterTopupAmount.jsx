@@ -221,14 +221,17 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         }
 
         // The bank is now connected — pay against it directly using the
-        // identifiers connect() just returned, no separate consent step.
+        // identifier connect() just returned, no separate consent step.
+        // Confirmed live: the real callback payload nests it as
+        // bank.bank_identifier, not a top-level bank_identifier — and has
+        // no end_user_id field at all, so that's dropped rather than sent
+        // as undefined.
         const payConfig = {
           app_token: appToken,
           customer_id: customerId,
           access_token: accessToken,
           payment_intent_id: paymentIntentId,
-          bank_identifier: connectPayload.bank_identifier,
-          end_user_id: connectPayload.end_user_id,
+          bank_identifier: connectPayload.bank?.bank_identifier,
           sandbox: true,
           success_redirect_url: redirectUrl(),
           fail_redirect_url: redirectUrl(),

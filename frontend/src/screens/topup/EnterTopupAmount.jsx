@@ -198,8 +198,14 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       sandbox: true,
       success_redirect_url: redirectUrl(),
       fail_redirect_url: redirectUrl(),
-      // Same lesson as AoF/SIP's callbacks: only SUCCESS/CANCELLED are
-      // treated as final.
+      // Unlike AoF/SIP's callbacks, there's no real redirect that might
+      // still be coming to resolve an ambiguous status — RE never leaves
+      // this page (see the note above), so the callback IS the only signal
+      // there will ever be. Anything that isn't SUCCESS or an explicit
+      // CANCELLED is a real failure and has to be surfaced now: silently
+      // waiting here (as AoF/SIP correctly do, for their very different
+      // reason) would just leave the customer on the loading spinner
+      // forever with no way for anything else to ever move it along.
       callback: (connectPayload) => {
         console.log('[lean-re] connect callback:', connectPayload);
         logSdkEvent({ method: 'connect', group: topupGroupId, kind: 'callback', payload: connectPayload });
@@ -209,7 +215,8 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
           return;
         }
         if (connectPayload.status !== 'SUCCESS') {
-          console.log('[lean-re] non-terminal connect status');
+          setError(connectPayload.message ?? `Bank connection failed (${connectPayload.status})`);
+          setLoading(false);
           return;
         }
 
@@ -225,6 +232,8 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
           sandbox: true,
           success_redirect_url: redirectUrl(),
           fail_redirect_url: redirectUrl(),
+          // Same reasoning as connect()'s callback above: no redirect is
+          // ever coming to rescue an ambiguous status here.
           callback: (payPayload) => {
             console.log('[lean-re] pay callback:', payPayload);
             logSdkEvent({ method: 'pay', group: topupGroupId, kind: 'callback', payload: payPayload });
@@ -234,7 +243,8 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
               return;
             }
             if (payPayload.status !== 'SUCCESS') {
-              console.log('[lean-re] non-terminal pay status');
+              setError(payPayload.message ?? `Payment failed (${payPayload.status})`);
+              setLoading(false);
               return;
             }
 

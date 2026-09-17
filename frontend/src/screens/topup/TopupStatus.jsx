@@ -6,6 +6,19 @@ import { brand } from '../../brand.js';
 import { CheckIcon, ClockIcon, XIcon } from '../../icons.jsx';
 
 const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const maskIban = (iban) => (iban ? `•••• ${iban.slice(-4)}` : null);
+
+// sender_details/recipient_details come straight off the real Lean payment
+// resource (see leanAof.js/leanSip.js/leanRe.js) — name falls back to
+// bank_identifier since sender_details.name is frequently still null even
+// once the payment has settled (Lean doesn't always resolve it for OF).
+function describeParty(party) {
+  if (!party) return null;
+  const label = party.name ?? party.bank_identifier ?? null;
+  const masked = maskIban(party.iban);
+  if (!label && !masked) return null;
+  return [label, masked].filter(Boolean).join(' · ');
+}
 
 // Same ACCEPTED_BY_BANK / PENDING_WITH_BANK / FAILED vocabulary for all
 // three rails (see leanAof.js, leanSip.js, leanRe.js), so this one screen
@@ -65,18 +78,39 @@ export function TopupStatus({ paymentId, amount: initialAmount, userId, method =
 
   const icon = kind === 'success' ? <CheckIcon /> : kind === 'fail' ? <XIcon /> : <ClockIcon />;
   const title = kind === 'success' ? 'Top-up complete' : kind === 'fail' ? 'Top-up failed' : 'Waiting for your bank…';
+  const source = describeParty(data?.source);
+  const destination = describeParty(data?.destination);
 
   return (
     <div className="phone-screen" style={{ justifyContent: 'space-between', flex: 1 }}>
-      <div className="status-hero">
-        <div className={`status-icon ${kind}`}>{icon}</div>
-        <h2>{title}</h2>
-        <div style={{ fontSize: '1.8rem', fontWeight: 700 }}>{fmt(amount)} AED</div>
-        <div className="muted">to your {brand.shortName} balance</div>
-        <span className={`status-badge ${kind === 'success' ? 'success' : kind === 'fail' ? 'fail' : 'pending'}`}>
-          {status.replace(/_/g, ' ')}
-        </span>
-        {kind === 'pending' && <span className="spinner dark" />}
+      <div>
+        <div className="status-hero">
+          <div className={`status-icon ${kind}`}>{icon}</div>
+          <h2>{title}</h2>
+          <div style={{ fontSize: '1.8rem', fontWeight: 700 }}>{fmt(amount)} AED</div>
+          <div className="muted">to your {brand.shortName} balance</div>
+          <span className={`status-badge ${kind === 'success' ? 'success' : kind === 'fail' ? 'fail' : 'pending'}`}>
+            {status.replace(/_/g, ' ')}
+          </span>
+          {kind === 'pending' && <span className="spinner dark" />}
+        </div>
+
+        {kind === 'success' && (source || destination) && (
+          <div className="card" style={{ marginTop: 16 }}>
+            {source && (
+              <div className="receipt-row">
+                <span className="k">From</span>
+                <span className="v">{source}</span>
+              </div>
+            )}
+            {destination && (
+              <div className="receipt-row">
+                <span className="k">To</span>
+                <span className="v">{destination}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <button className="btn btn-primary" onClick={onDone} disabled={kind === 'pending'}>

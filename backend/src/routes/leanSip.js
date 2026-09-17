@@ -84,7 +84,17 @@ leanSipRouter.get('/lean/sip/topup/:intentId', async (req, res, next) => {
       });
     }
 
-    res.json({ amount, currency, status });
+    res.json({
+      amount,
+      currency,
+      status,
+      // Straight off the payment resource — who it actually moved from/to,
+      // once Lean has that (sender_details is often still null until the
+      // bank settles it; recipient_details is populated from the start
+      // since it's just our own registered destination).
+      source: payment?.sender_details ?? null,
+      destination: payment?.recipient_details ?? null,
+    });
   } catch (err) {
     next(err);
   }

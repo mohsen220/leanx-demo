@@ -188,7 +188,17 @@ leanAofRouter.get('/lean/aof/topup/:paymentId', async (req, res, next) => {
       });
     }
 
-    res.json({ amount: payment?.amount, currency: payment?.currency ?? 'AED', status });
+    res.json({
+      amount: payment?.amount,
+      currency: payment?.currency ?? 'AED',
+      status,
+      // Straight off the payment resource — who it actually moved from/to,
+      // once Lean has that (sender_details is often still null until the
+      // bank settles it; recipient_details is populated from the start
+      // since it's just our own registered destination).
+      source: payment?.sender_details ?? null,
+      destination: payment?.recipient_details ?? null,
+    });
   } catch (err) {
     next(err);
   }

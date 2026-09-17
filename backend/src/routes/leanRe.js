@@ -79,7 +79,16 @@ leanReRouter.get('/lean/re/topup/:intentId', async (req, res, next) => {
       });
     }
 
-    res.json({ amount, currency, status });
+    res.json({
+      amount,
+      currency,
+      status,
+      // Straight off the payment resource — who it actually moved from/to.
+      // Unlike OF, RE knows the connected account up front, so sender_details
+      // is more likely to actually be populated here than for AoF/SIP.
+      source: payment?.sender_details ?? null,
+      destination: payment?.recipient_details ?? null,
+    });
   } catch (err) {
     next(err);
   }

@@ -55,6 +55,17 @@ async function chargeAofConsent(user, consentId, amount) {
   return payment;
 }
 
+// The customer can revoke an AoF consent at any time from Manage Consents
+// (CMI) — that's the entire point of consent management — but our cache
+// (aofConsentId/aofConsentStatus) only ever changes in response to OUR
+// OWN calls, so it has no way to learn about a revoke that happened over
+// on Lean's side. Distinguishes "the cached consent is stale" from a
+// genuine charge failure (insufficient funds, bank decline, etc.), which
+// should still surface as a real error.
+function isStaleConsentError(err) {
+  return err.status === 400 && err.payload?.granular_status_code === 'INVALID_CONSENT_STATE';
+}
+
 // Entry point from the top-up screen. Two outcomes:
 //  - The customer already has an AUTHORISED consent: charge immediately,
 //    no redirect, no LinkSDK — the "instant top-up" AoF is meant to enable.
@@ -97,8 +108,18 @@ leanAofRouter.post('/lean/aof/topup', async (req, res, next) => {
     }
 
     if (consent.status === 'AUTHORISED') {
-      const payment = await chargeAofConsent(user, consent.id, amount);
-      return res.json({ mode: 'instant', paymentId: payment.id, status: payment.status });
+      try {
+        const payment = await chargeAofConsent(user, consent.id, amount);
+        return res.json({ mode: 'instant', paymentId: payment.id, status: payment.status });
+      } catch (err) {
+        if (!isStaleConsentError(err)) throw err;
+        // Our cache said AUTHORISED but Lean just rejected it as REVOKED
+        // (or otherwise unusable) — drop the stale id and fall through to
+        // the same "create a fresh consent, ask to authorize" path a
+        // first-time top-up takes, rather than failing the request.
+        db.users.update(user.id, { aofConsentId: null, aofConsentStatus: null });
+        consent = await createAofConsent(user, customerId, destinationId);
+      }
     }
 
     const { accessToken } = await getCustomerToken(customerId);

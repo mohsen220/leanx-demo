@@ -1,123 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { ReactFlow, Background, Controls, Handle, Position, MarkerType } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { api } from './api.js';
 import { getLog, subscribeLog, clearLog } from './logStore.js';
 import { BoltIcon, BankIcon, ShieldIcon, CheckIcon } from './icons.jsx';
+import { FLOW_GRAPHS } from './flowGraphs.js';
 
-// Every product this console can trace. `steps` is the always-visible
-// reference integration flow — the sequence of things that happen for a
-// clean run, laid out across three lanes (browser/LinkSDK, our backend,
-// Lean's API) — independent of whether any traffic has happened yet. Each
-// step's `category` is the same log category the matching real call is
-// published under, so a selected run's calls can be overlaid onto the row
-// they belong to. `backend: null` means this step never touches our
-// backend at all (LinkSDK talks to Lean directly); `lean` on those rows is
-// therefore always descriptive text, never overlaid — we have no way to
-// capture that traffic.
 const PRODUCTS = [
-  {
-    id: 'leanx',
-    label: 'Lean X',
-    sublabel: 'Cross-border transfers',
-    icon: BoltIcon,
-    steps: [
-      { category: 'quote', browser: 'Customer picks a corridor and enters an amount', backend: 'POST /api/quotes', lean: 'POST /quote' },
-      {
-        category: 'validation',
-        browser: 'Enters beneficiary bank details (India only)',
-        backend: 'POST /api/validate-account',
-        lean: 'POST /validate_account',
-        optional: true,
-      },
-      { category: 'payment', browser: 'Reviews and confirms the transfer', backend: 'POST /api/payments', lean: 'POST /payment' },
-      { category: 'payment-status', browser: 'Watches the live status timeline', backend: 'GET /api/payments/:id', lean: 'GET /payments/:id' },
-    ],
-  },
-  {
-    id: 'pbb-aof',
-    label: 'Pay by Bank',
-    sublabel: 'Account on File',
-    icon: BankIcon,
-    steps: [
-      {
-        category: 'aof-start',
-        browser: 'Taps "Top up" and chooses Account on File',
-        backend: 'POST /api/lean/aof/topup',
-        lean: 'Checks for / creates a standing consent',
-      },
-      {
-        category: 'sdk-authorizeConsent',
-        browser: 'Lean.authorizeConsent() opens the bank redirect',
-        backend: null,
-        lean: 'Lean hosts the consent-authorization UI directly',
-      },
-      { category: 'aof-charge', browser: 'Callback reports SUCCESS', backend: 'POST /api/lean/aof/topup/charge', lean: 'POST /payments/v1/account-on-file' },
-      { category: 'aof-status', browser: 'Polls for the result', backend: 'GET /api/lean/aof/topup/:id', lean: 'GET status' },
-    ],
-  },
-  {
-    id: 'pbb-sip',
-    label: 'Pay by Bank',
-    sublabel: 'Single Instant Payment',
-    icon: BankIcon,
-    steps: [
-      {
-        category: 'sip-start',
-        browser: 'Taps "Top up" and chooses Single Instant Payment',
-        backend: 'POST /api/lean/sip/topup',
-        lean: 'POST /payments/v1/intents',
-      },
-      { category: 'sdk-checkout', browser: 'Lean.checkout() opens the bank redirect', backend: null, lean: 'Lean hosts the checkout UI directly' },
-      { category: 'sip-status', browser: 'Polls for the result', backend: 'GET /api/lean/sip/topup/:id', lean: 'GET /payments/v1/intents/:id' },
-    ],
-  },
-  {
-    id: 'pbb-re',
-    label: 'Pay by Bank',
-    sublabel: 'Reverse Engineered',
-    icon: BankIcon,
-    steps: [
-      {
-        category: 're-start',
-        browser: 'Taps "Top up" and chooses Reverse Engineered',
-        backend: 'POST /api/lean/re/topup',
-        lean: 'POST /payments/v1/destinations',
-      },
-      { category: 'sdk-connect', browser: 'Lean.connect() links the bank account', backend: null, lean: 'Lean hosts the connect UI directly' },
-      { category: 'sdk-pay', browser: 'Lean.pay() executes the payment', backend: null, lean: 'Lean hosts the payment UI directly' },
-      { category: 're-status', browser: 'Polls for the result', backend: 'GET /api/lean/re/topup/:id', lean: 'GET status' },
-    ],
-  },
-  {
-    id: 'consents',
-    label: 'Consents',
-    sublabel: 'CMI',
-    icon: ShieldIcon,
-    steps: [
-      {
-        category: 'consents-start',
-        browser: 'Taps "Manage consents"',
-        backend: 'POST /api/lean/consents/session',
-        lean: 'Mints a customer-scoped access token',
-      },
-      { category: 'sdk-manageConsents', browser: 'Lean.manageConsents() opens the consent list', backend: null, lean: 'Lean hosts the CMI UI directly' },
-    ],
-  },
-  {
-    id: 'verify',
-    label: 'Verification',
-    sublabel: 'AVS',
-    icon: CheckIcon,
-    steps: [
-      {
-        category: 'verify-account',
-        browser: 'Enters IBAN and account-holder name',
-        backend: 'POST /api/lean/verify-account',
-        lean: 'POST /verifications/v1/accounts',
-      },
-    ],
-  },
+  { id: 'leanx', label: 'Lean X', sublabel: 'Cross-border transfers', icon: BoltIcon },
+  { id: 'pbb-aof', label: 'Pay by Bank', sublabel: 'Account on File', icon: BankIcon },
+  { id: 'pbb-sip', label: 'Pay by Bank', sublabel: 'Single Instant Payment', icon: BankIcon },
+  { id: 'pbb-re', label: 'Pay by Bank', sublabel: 'Reverse Engineered', icon: BankIcon },
+  { id: 'consents', label: 'Consents', sublabel: 'CMI', icon: ShieldIcon },
+  { id: 'verify', label: 'Verification', sublabel: 'AVS', icon: CheckIcon },
 ];
-
 const PRODUCTS_BY_ID = Object.fromEntries(PRODUCTS.map((p) => [p.id, p]));
 
 const STEP_LABELS = {
@@ -152,15 +48,8 @@ const UPSTREAM_TAG_LABEL = { 'lean-api': 'Lean API (real)', 'swiftx-api': 'Swift
 const UPSTREAM_CATEGORIES = new Set(Object.keys(UPSTREAM_TAG_LABEL));
 
 const BG_GROUP_LABEL = { 'home-visit': 'Home refresh', 'history-visit': 'History visit' };
-
 const TOPUP_METHOD_LABEL = { aof: 'Account on File', sip: 'Single Instant Payment', re: 'Reverse Engineered' };
 
-// AoF vs SIP vs RE, inferred from whichever categories actually show up in
-// the group — cheaper than threading a separate "method" field through
-// every call site just for the console's own display. Checked against both
-// the REST categories (leanAofApi.js etc.) and the SDK-call categories
-// (logSdkEvent in EnterTopupAmount.jsx/App.jsx), since either can be the
-// first call logged for a given journey.
 function topupMethodOf(calls) {
   if (calls.some((c) => c.category?.startsWith('aof') || c.category === 'sdk-authorizeConsent')) return 'aof';
   if (calls.some((c) => c.category?.startsWith('sip') || c.category === 'sdk-checkout')) return 'sip';
@@ -170,10 +59,6 @@ function topupMethodOf(calls) {
   return null;
 }
 
-// Buckets a journey's group id into one of the six product ids the nav is
-// organized by, or a background/uncorrelated bucket. `topup-*` groups don't
-// say which rail on their own — topupMethodOf inspects the categories that
-// actually showed up to tell AoF/SIP/RE apart.
 function classifyGroup(groupId, groupCalls) {
   if (!groupId) return 'ungrouped';
   if (groupId.startsWith('home-')) return 'home-visit';
@@ -189,59 +74,6 @@ function statusClass(status) {
   return status < 400 ? 'ok' : 'fail';
 }
 
-// One-line "what happened" summary for a call, used on run cards so a list
-// of runs reads as real facts rather than a repeated generic label.
-function summarize(call) {
-  const p = call.payload;
-  if (!p) return null;
-  switch (call.category) {
-    case 'quote':
-      return `${call.body?.amount ?? p.amount} ${p.currency} → ${p.amount_destination} (rate ${p.rate})`;
-    case 'validation':
-      return `${p.status}${p.name ? ` — ${p.name}` : ''}`;
-    case 'payment':
-      return `accepted — ${p.status}`;
-    case 'payment-status':
-      return `${p.status}`;
-    case 'balance':
-      return `${p.balance?.toLocaleString?.() ?? p.balance} ${p.currency} available`;
-    case 'history':
-      return Array.isArray(p) ? `${p.length} record${p.length === 1 ? '' : 's'}` : null;
-    case 'corridors':
-      return Array.isArray(p) ? `${p.length} corridors` : null;
-    case 'aof-start':
-      return p.mode === 'instant' ? `instant — ${p.status}` : 'needs authorization — opening LinkSDK';
-    case 'aof-charge':
-    case 'aof-status':
-    case 'sip-status':
-    case 're-status':
-      return p.status ? `${p.status}` : null;
-    case 'aof-abandon':
-      return p.ok ? 'consent abandoned' : null;
-    case 'sip-start':
-    case 're-start':
-      return p.paymentIntentId ? `intent ${p.paymentIntentId.slice(0, 8)}… — opening LinkSDK` : null;
-    case 'sdk-authorizeConsent':
-    case 'sdk-checkout':
-    case 'sdk-connect':
-    case 'sdk-pay':
-    case 'sdk-captureRedirect':
-    case 'sdk-manageConsents':
-      if (p.invoked) return 'widget opened';
-      return p.status ? `callback → ${p.status}` : null;
-    case 'consents-start':
-      return p.customerId ? `customer ${p.customerId.slice(0, 8)}… — opening CMI` : null;
-    case 'verify-account':
-      if (!p.verifications) return null;
-      return p.verifications.account_ownership_verified ? 'ownership verified' : 'not verified';
-    default:
-      return null;
-  }
-}
-
-// The status pill needs a value with the same vocabulary as the payment-
-// status enum (succeeded/failed/etc.) even for products whose payload
-// doesn't carry a `status` field of its own.
 function runStatusOf(product, calls) {
   if (product === 'verify') {
     const c = [...calls].reverse().find((c) => c.category === 'verify-account' && c.payload);
@@ -258,8 +90,6 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Regex-based JSON syntax highlighter — escapes first, then wraps already-
-// escaped tokens in span tags, so nothing from the payload can inject markup.
 function highlightJson(value) {
   if (value === undefined) return '<span style="opacity:.5">— no payload —</span>';
   const escaped = escapeHtml(JSON.stringify(value, null, 2));
@@ -287,12 +117,11 @@ function formatDuration(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-// Rebuilds one run's flat call list into rows keyed by category — polling
-// (many consecutive calls, same category) collapses into one row keeping
-// every call so "called N×" and the final outcome both stay visible; any
-// `_upstream` calls a route made are attached as children of the row that
-// triggered them, since they were recorded strictly in between that row's
-// request and the next one's.
+// Groups one run's flat, chronological call list into rows keyed by
+// category — polling (many consecutive calls, same category) collapses
+// into one row keeping every call, and any `_upstream` calls a route made
+// attach as children of the row that triggered them (they were recorded
+// strictly between that row's request and the next one's).
 function buildRunRows(runCalls) {
   const rows = [];
   for (const call of runCalls) {
@@ -347,75 +176,62 @@ function buildGroups(calls) {
   return { runsByProduct, bgGroups, standalone: flat };
 }
 
-export function DeveloperConsole() {
-  const [calls, setCalls] = useState(() => getLog());
-  const [corridors, setCorridors] = useState([]);
-  const [mockMode, setMockMode] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState('leanx');
-  const [selectedRunId, setSelectedRunId] = useState(null);
-  const [expandedCategory, setExpandedCategory] = useState(null);
-  const [bgOpen, setBgOpen] = useState(false);
-  const [search, setSearch] = useState('');
+// Every real historical occurrence of one graph node's category, newest
+// first — runs are already newest-first, and within a run there's
+// normally exactly one row per category (polling collapses to one row).
+function historyForCategory(runs, category) {
+  const out = [];
+  for (const run of runs) {
+    for (const row of buildRunRows(run.calls)) {
+      if (row.category === category) out.push({ runId: run.id, ...row });
+    }
+  }
+  return out;
+}
 
-  useEffect(() => subscribeLog(setCalls), []);
+const EDGE_COLOR = { success: 'var(--dc-success)', fail: 'var(--dc-danger)', default: 'var(--dc-text-faint)' };
 
-  useEffect(() => {
-    api.getCorridors().then(setCorridors).catch(() => {});
-    api.getHealth().then((h) => setMockMode(h.mockMode)).catch(() => {});
-  }, []);
-
-  const corridorByCode = useMemo(() => Object.fromEntries(corridors.map((c) => [c.code, c])), [corridors]);
-  const { runsByProduct, bgGroups, standalone } = useMemo(() => buildGroups(calls), [calls]);
-
-  const selectProduct = (id) => {
-    setSelectedProduct(id);
-    setSelectedRunId(null);
-    setExpandedCategory(null);
-    setSearch('');
-  };
-
-  const product = PRODUCTS_BY_ID[selectedProduct];
-  const allRuns = runsByProduct.get(selectedProduct) ?? [];
-  const q = search.trim().toLowerCase();
-  const runs = q
-    ? allRuns.filter((run) => {
-        const corridor = corridorByCode[run.country];
-        return [corridor?.name, corridor?.code, ...run.calls.map((c) => `${c.path} ${JSON.stringify(c.body ?? '')} ${JSON.stringify(c.payload ?? '')}`)]
-          .join(' ')
-          .toLowerCase()
-          .includes(q);
-      })
-    : allRuns;
-
-  const selectedRun = selectedRunId ? allRuns.find((r) => r.id === selectedRunId) ?? null : null;
-  const rowsByCategory = useMemo(() => {
-    if (!selectedRun) return null;
-    return new Map(buildRunRows(selectedRun.calls).map((r) => [r.category, r]));
-  }, [selectedRun]);
-
-  const extraRows = useMemo(() => {
-    if (!selectedRun || !rowsByCategory) return [];
-    const known = new Set(product.steps.map((s) => s.category));
-    return [...rowsByCategory.values()].filter((r) => !known.has(r.category));
-  }, [selectedRun, rowsByCategory, product]);
-
-  const stats = useMemo(() => {
-    const withStatus = calls.filter((c) => c.status != null);
-    const ok = withStatus.filter((c) => c.status < 400).length;
-    const totalRuns = [...runsByProduct.values()].reduce((n, arr) => n + arr.length, 0);
-    const upstream = calls.filter((c) => UPSTREAM_CATEGORIES.has(c.category)).length;
+function buildFlowEdges(productId) {
+  return FLOW_GRAPHS[productId].edges.map((e) => {
+    const color = EDGE_COLOR[e.variant] ?? EDGE_COLOR.default;
     return {
-      totalRuns,
-      total: calls.length,
-      upstream,
-      successRate: withStatus.length ? Math.round((ok / withStatus.length) * 100) : null,
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: 'smoothstep',
+      label: e.label,
+      style: { stroke: color, strokeWidth: 1.6 },
+      labelStyle: { fill: 'var(--dc-text-muted)', fontFamily: 'var(--dc-mono)', fontSize: 10, fontWeight: 700 },
+      labelBgStyle: { fill: 'var(--dc-surface)', fillOpacity: 0.9 },
+      labelBgPadding: [4, 2],
+      markerEnd: { type: MarkerType.ArrowClosed, color, width: 15, height: 15 },
     };
-  }, [calls, runsByProduct]);
+  });
+}
 
-  const toggleCategory = (category) => setExpandedCategory((prev) => (prev === category ? null : category));
+function FlowNode({ data }) {
+  const { kind, title, subtitle, count, lastOk, highlighted, selected } = data;
+  return (
+    <div className={`dc-node dc-node-${kind} ${highlighted ? 'hit' : ''} ${selected ? 'active' : ''}`}>
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <div className="dc-node-title">{title}</div>
+      {subtitle && <div className="dc-node-subtitle">{subtitle}</div>}
+      {(kind === 'api' || kind === 'sdk') && (
+        <div className="dc-node-foot">
+          <span className={`dc-node-dot ${lastOk ?? 'none'}`} />
+          <span>{count} call{count === 1 ? '' : 's'}</span>
+        </div>
+      )}
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </div>
+  );
+}
 
-  const renderCallDetail = (call, label) => (
-    <div className="dc-section" key={`${label}-req`}>
+const NODE_TYPES = { flowNode: FlowNode };
+
+function CallDetail({ call, label }) {
+  return (
+    <div className="dc-section">
       <div className="dc-section-head">
         <span className="dc-section-title">{label} — Request</span>
         <button className="dc-copy-btn" onClick={() => navigator.clipboard?.writeText(JSON.stringify(call.body ?? {}, null, 2))}>
@@ -431,105 +247,170 @@ export function DeveloperConsole() {
       </div>
       <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.payload) }} />
       {call.method !== 'SDK' && !UPSTREAM_CATEGORIES.has(call.category) && (
-        <div className="dc-section-head" style={{ marginTop: 12 }}>
-          <span className="dc-section-title">Reproduce</span>
-          <button className="dc-copy-btn" onClick={() => navigator.clipboard?.writeText(toCurl(call))}>
-            Copy cURL
-          </button>
-        </div>
+        <>
+          <div className="dc-section-head" style={{ marginTop: 12 }}>
+            <span className="dc-section-title">Reproduce</span>
+            <button className="dc-copy-btn" onClick={() => navigator.clipboard?.writeText(toCurl(call))}>
+              Copy cURL
+            </button>
+          </div>
+          <pre className="dc-pre">{toCurl(call)}</pre>
+        </>
       )}
-      {call.method !== 'SDK' && !UPSTREAM_CATEGORIES.has(call.category) && <pre className="dc-pre">{toCurl(call)}</pre>}
     </div>
   );
+}
 
-  const renderFlowRow = (step) => {
-    const row = rowsByCategory?.get(step.category) ?? null;
-    const isSdkStep = step.category.startsWith('sdk-');
-    const isOpen = expandedCategory === step.category;
-    const missing = selectedRun && !row;
-
-    let browserCell;
-    if (isSdkStep && row) {
-      const finalCall = row.calls[row.calls.length - 1];
-      const eventNote = row.calls.length > 1 ? ` · ${row.calls.length} SDK events` : '';
-      browserCell = (
-        <button className="dc-flow-cell filled" onClick={() => toggleCategory(step.category)}>
-          <span className={`dc-flow-cell-status ${statusClass(finalCall.status)}`}>{finalCall.status ?? '···'}</span>
-          <span className="dc-flow-cell-text">
-            {finalCall.path}
-            {eventNote}
-          </span>
-          <span className="dc-flow-cell-summary">{summarize(finalCall)}</span>
-        </button>
-      );
-    } else {
-      browserCell = <div className="dc-flow-cell placeholder">{step.browser}</div>;
-    }
-
-    let backendCell;
-    if (step.backend === null) {
-      backendCell = <div className="dc-flow-cell empty">—</div>;
-    } else if (row && !isSdkStep) {
-      const finalCall = row.calls[row.calls.length - 1];
-      const pollNote = row.calls.length > 1 ? ` · polled ${row.calls.length}×` : '';
-      backendCell = (
-        <button className="dc-flow-cell filled" onClick={() => toggleCategory(step.category)}>
-          <span className={`dc-flow-cell-status ${statusClass(finalCall.status)}`}>{finalCall.status ?? '···'}</span>
-          <span className="dc-flow-cell-text">
-            {finalCall.method} {finalCall.path}
-            {pollNote}
-          </span>
-          <span className="dc-flow-cell-summary">{finalCall.duration != null ? formatDuration(finalCall.duration) : ''}</span>
-        </button>
-      );
-    } else if (missing) {
-      backendCell = <div className="dc-flow-cell not-reached">{step.optional ? 'skipped this run' : 'not reached'}</div>;
-    } else {
-      backendCell = <div className="dc-flow-cell placeholder">{step.backend}</div>;
-    }
-
-    let leanCell;
-    if (isSdkStep) {
-      leanCell = <div className="dc-flow-cell placeholder muted">{step.lean}</div>;
-    } else if (row && row.upstream.length > 0) {
-      leanCell = (
-        <button className="dc-flow-cell filled" onClick={() => toggleCategory(step.category)}>
+function OccurrenceRow({ row, isSdk }) {
+  const [open, setOpen] = useState(false);
+  const finalCall = row.calls[row.calls.length - 1];
+  const pollNote = row.calls.length > 1 ? ` · ${row.calls.length}×` : '';
+  return (
+    <div className="dc-occurrence">
+      <button className="dc-occurrence-head" onClick={() => setOpen((v) => !v)}>
+        <span className={`dc-flow-cell-status ${statusClass(finalCall.status)}`}>{finalCall.status ?? '···'}</span>
+        <span className="dc-occurrence-path">
+          {finalCall.method} {finalCall.path}
+          {pollNote}
+        </span>
+        <span className="dc-occurrence-time">{new Date(finalCall.time).toLocaleString()}</span>
+        {finalCall.duration != null && <span className="dc-occurrence-duration">{formatDuration(finalCall.duration)}</span>}
+      </button>
+      {open && (
+        <div className="dc-occurrence-detail">
+          {row.calls.map((c, i) =>
+            isSdk ? (
+              <CallDetail key={c.id} call={c} label={row.calls.length > 1 ? `Event ${i + 1}` : 'Event'} />
+            ) : (
+              <CallDetail key={c.id} call={c} label={row.calls.length > 1 ? `Call ${i + 1}` : 'Your backend'} />
+            ),
+          )}
           {row.upstream.map((u) => (
-            <span className="dc-flow-cell-upstream" key={u.id}>
-              <span className={`dc-flow-cell-status ${statusClass(u.status)}`}>{u.status ?? '···'}</span>
-              <span className="dc-flow-cell-text">
-                {u.method} {u.path}
-              </span>
-              <span className="dc-flow-cell-tag">{UPSTREAM_TAG_LABEL[u.category]}</span>
-            </span>
+            <CallDetail key={u.id} call={u} label={UPSTREAM_TAG_LABEL[u.category]} />
           ))}
-        </button>
-      );
-    } else if (missing) {
-      leanCell = <div className="dc-flow-cell not-reached">{step.optional ? 'skipped this run' : 'not reached'}</div>;
-    } else if (row) {
-      leanCell = <div className="dc-flow-cell not-reached">no upstream call captured</div>;
-    } else {
-      leanCell = <div className="dc-flow-cell placeholder">{step.lean}</div>;
-    }
-
-    return (
-      <div className="dc-flow-row-group" key={step.category}>
-        <div className="dc-flow-row">
-          {browserCell}
-          {backendCell}
-          {leanCell}
         </div>
-        {isOpen && row && (
-          <div className="dc-flow-detail">
-            {!isSdkStep && row.calls.map((c, i) => renderCallDetail(c, row.calls.length > 1 ? `Your backend (call ${i + 1})` : 'Your backend'))}
-            {isSdkStep && row.calls.map((c, i) => renderCallDetail(c, row.calls.length > 1 ? `Lean.${step.category.replace('sdk-', '')}() (event ${i + 1})` : `Lean.${step.category.replace('sdk-', '')}()`))}
-            {row.upstream.map((u) => renderCallDetail(u, UPSTREAM_TAG_LABEL[u.category]))}
+      )}
+    </div>
+  );
+}
+
+function NodeDrawer({ node, runs, onClose }) {
+  const isHistorical = node.kind === 'api' || node.kind === 'sdk';
+  const occurrences = useMemo(() => (isHistorical ? historyForCategory(runs, node.category) : []), [isHistorical, runs, node.category]);
+  const okCount = occurrences.filter((o) => statusClass(o.calls[o.calls.length - 1].status) === 'ok').length;
+
+  return (
+    <>
+      <div className="dc-drawer-backdrop" onClick={onClose} />
+      <aside className="dc-drawer">
+        <div className="dc-drawer-head">
+          <div>
+            <div className={`dc-drawer-kind dc-node-${node.kind}`}>{node.kind.replace('-', ' ')}</div>
+            <h3>{node.title}</h3>
+            {node.subtitle && <div className="dc-drawer-subtitle">{node.subtitle}</div>}
           </div>
+          <button className="dc-btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        {node.description && <p className="dc-drawer-desc">{node.description}</p>}
+
+        {isHistorical && (
+          <>
+            <div className="dc-drawer-stats">
+              <div>
+                <span className="n">{occurrences.length}</span>
+                <span className="lbl">Times seen</span>
+              </div>
+              <div>
+                <span className="n">{occurrences.length ? `${Math.round((okCount / occurrences.length) * 100)}%` : '—'}</span>
+                <span className="lbl">Success rate</span>
+              </div>
+            </div>
+            <div className="dc-drawer-history-label">History (newest first)</div>
+            {occurrences.length === 0 && (
+              <div className="dc-empty-note">Not seen yet — use this step in the app to capture a real call here.</div>
+            )}
+            {occurrences.map((row, i) => (
+              <OccurrenceRow key={`${row.runId}-${i}`} row={row} isSdk={node.kind === 'sdk'} />
+            ))}
+          </>
         )}
-      </div>
-    );
+      </aside>
+    </>
+  );
+}
+
+export function DeveloperConsole() {
+  const [calls, setCalls] = useState(() => getLog());
+  const [corridors, setCorridors] = useState([]);
+  const [mockMode, setMockMode] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState('leanx');
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [highlightedRunId, setHighlightedRunId] = useState(null);
+  const [bgOpen, setBgOpen] = useState(false);
+
+  useEffect(() => subscribeLog(setCalls), []);
+
+  useEffect(() => {
+    api.getCorridors().then(setCorridors).catch(() => {});
+    api.getHealth().then((h) => setMockMode(h.mockMode)).catch(() => {});
+  }, []);
+
+  const corridorByCode = useMemo(() => Object.fromEntries(corridors.map((c) => [c.code, c])), [corridors]);
+  const { runsByProduct, bgGroups, standalone } = useMemo(() => buildGroups(calls), [calls]);
+
+  const selectProduct = (id) => {
+    setSelectedProduct(id);
+    setSelectedNodeId(null);
+    setHighlightedRunId(null);
   };
+
+  const product = PRODUCTS_BY_ID[selectedProduct];
+  const runs = runsByProduct.get(selectedProduct) ?? [];
+
+  const highlightedCategories = useMemo(() => {
+    if (!highlightedRunId) return null;
+    const run = runs.find((r) => r.id === highlightedRunId);
+    return run ? new Set(run.calls.map((c) => c.category)) : null;
+  }, [highlightedRunId, runs]);
+
+  const flowNodes = useMemo(() => {
+    if (!product) return [];
+    return FLOW_GRAPHS[selectedProduct].nodes.map((n) => {
+      const matches = n.category ? calls.filter((c) => c.category === n.category) : [];
+      return {
+        id: n.id,
+        type: 'flowNode',
+        position: { x: n.x, y: n.y },
+        draggable: false,
+        data: {
+          ...n,
+          count: matches.length,
+          lastOk: matches.length ? statusClass(matches[0].status) : null,
+          highlighted: highlightedCategories?.has(n.category) ?? false,
+          selected: selectedNodeId === n.id,
+        },
+      };
+    });
+  }, [product, selectedProduct, calls, highlightedCategories, selectedNodeId]);
+
+  const flowEdges = useMemo(() => (product ? buildFlowEdges(selectedProduct) : []), [product, selectedProduct]);
+  const selectedNode = selectedNodeId ? FLOW_GRAPHS[selectedProduct].nodes.find((n) => n.id === selectedNodeId) : null;
+
+  const stats = useMemo(() => {
+    const withStatus = calls.filter((c) => c.status != null);
+    const ok = withStatus.filter((c) => c.status < 400).length;
+    const totalRuns = [...runsByProduct.values()].reduce((n, arr) => n + arr.length, 0);
+    const upstream = calls.filter((c) => UPSTREAM_CATEGORIES.has(c.category)).length;
+    return {
+      totalRuns,
+      total: calls.length,
+      upstream,
+      successRate: withStatus.length ? Math.round((ok / withStatus.length) * 100) : null,
+    };
+  }, [calls, runsByProduct]);
 
   const runHeadline = (run) => {
     if (run.product === 'leanx') {
@@ -560,7 +441,8 @@ export function DeveloperConsole() {
             className="dc-btn danger"
             onClick={() => {
               clearLog();
-              setSelectedRunId(null);
+              setSelectedNodeId(null);
+              setHighlightedRunId(null);
             }}
           >
             Clear log
@@ -625,11 +507,7 @@ export function DeveloperConsole() {
                 <button
                   key={group.id}
                   className={`dc-bg-item ${selectedProduct === group.id ? 'selected' : ''}`}
-                  onClick={() => {
-                    setSelectedProduct(group.id);
-                    setSelectedRunId(null);
-                    setExpandedCategory(null);
-                  }}
+                  onClick={() => selectProduct(group.id)}
                 >
                   <span>{BG_GROUP_LABEL[group.product] ?? 'Other activity'}</span>
                   <span className="count">{group.calls.length}</span>
@@ -654,41 +532,32 @@ export function DeveloperConsole() {
                   <h2>{product.label}</h2>
                   <div className="dc-product-head-sub">{product.sublabel}</div>
                 </div>
-                {selectedRun && (
-                  <button className="dc-btn" onClick={() => setSelectedRunId(null)}>
-                    Clear overlay
-                  </button>
-                )}
               </div>
 
-              <div className="dc-flow">
-                <div className="dc-flow-row-group">
-                  <div className="dc-flow-row dc-flow-headrow">
-                    <div className="dc-flow-lanehead">Browser / LinkSDK</div>
-                    <div className="dc-flow-lanehead">Your backend</div>
-                    <div className="dc-flow-lanehead">Lean API</div>
-                  </div>
-                </div>
-                {product.steps.map(renderFlowRow)}
-                {extraRows.length > 0 && (
-                  <div className="dc-flow-extra-note">
-                    Also observed in this run: {extraRows.map((r) => STEP_LABELS[r.category] ?? r.category).join(', ')}
-                  </div>
-                )}
+              <div className="dc-graph-wrap">
+                <ReactFlow
+                  nodes={flowNodes}
+                  edges={flowEdges}
+                  nodeTypes={NODE_TYPES}
+                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                  onPaneClick={() => setSelectedNodeId(null)}
+                  fitView
+                  fitViewOptions={{ padding: 0.15 }}
+                  proOptions={{ hideAttribution: true }}
+                  nodesConnectable={false}
+                  elementsSelectable
+                  panOnScroll
+                  zoomOnScroll={false}
+                  minZoom={0.3}
+                  maxZoom={1.5}
+                >
+                  <Background gap={18} size={1} color="var(--dc-border)" />
+                  <Controls showInteractive={false} position="top-right" />
+                </ReactFlow>
               </div>
 
               <div className="dc-runs">
-                <div className="dc-runs-head">
-                  <div className="dc-section-label" style={{ margin: 0 }}>
-                    Recent runs ({runs.length})
-                  </div>
-                  <input
-                    className="dc-search dc-runs-search"
-                    placeholder="Search corridor, field, value…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
+                <div className="dc-section-label">Recent runs ({runs.length})</div>
                 {runs.length === 0 && (
                   <div className="dc-empty-note">No runs yet — use this product in the app to see one traced here, live.</div>
                 )}
@@ -698,11 +567,9 @@ export function DeveloperConsole() {
                     return (
                       <button
                         key={run.id}
-                        className={`dc-run-card ${selectedRunId === run.id ? 'selected' : ''}`}
-                        onClick={() => {
-                          setSelectedRunId((prev) => (prev === run.id ? null : run.id));
-                          setExpandedCategory(null);
-                        }}
+                        className={`dc-run-card ${highlightedRunId === run.id ? 'selected' : ''}`}
+                        title="Highlight the nodes this run touched on the graph above"
+                        onClick={() => setHighlightedRunId((prev) => (prev === run.id ? null : run.id))}
                       >
                         <div className="dc-journey-top">
                           {flag && <span className="flag">{flag}</span>}
@@ -771,6 +638,8 @@ export function DeveloperConsole() {
             })()}
         </section>
       </div>
+
+      {selectedNode && <NodeDrawer node={selectedNode} runs={runs} onClose={() => setSelectedNodeId(null)} />}
     </div>
   );
 }

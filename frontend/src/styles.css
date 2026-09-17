@@ -530,6 +530,34 @@ h2 {
   margin-top: 0;
 }
 
+.rail-toggle {
+  display: flex;
+  background: var(--surface-alt);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.rail-toggle button {
+  flex: 1;
+  appearance: none;
+  border: none;
+  background: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.rail-toggle button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
 .field input,
 .field select,
 .field textarea {

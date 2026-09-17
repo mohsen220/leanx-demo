@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { leanAofApi } from '../../leanAofApi.js';
 import { leanSipApi } from '../../leanSipApi.js';
+import { leanReApi } from '../../leanReApi.js';
 import { brand } from '../../brand.js';
 import { BackIcon } from '../../icons.jsx';
 
@@ -12,15 +13,17 @@ import { BackIcon } from '../../icons.jsx';
 // customer has already completed real bank authorization.
 const redirectUrl = () => `${window.location.origin}/`;
 
-// Two top-up rails, same screen: AoF (leanAofApi) trades a one-time bank
-// link for instant repeat top-ups; SIP (leanSipApi) skips any setup but
-// needs a fresh bank login every single time — mirrors Lean's own AOF/SIP
-// split for Pay by Bank. Both survive a real bank redirect the same way
-// (see the localStorage handoff below and App.jsx's resume effect), since
-// Open Finance authorization is a genuine top-level navigation that wipes
-// this whole JS context.
+// Two mechanisms, toggled at the top: OF (Open Finance — AoF or SIP,
+// leanAofApi/leanSipApi) authorizes at the bank via a real redirect, so both
+// survive it the same way (the localStorage handoff below + App.jsx's
+// resume effect + Lean.captureRedirect() on return). RE (Reverse
+// Engineered — leanReApi) is Lean's older, pre-Open-Finance UAE A2A rail:
+// Lean.connect() links the bank directly (permissions: ['payments']), then
+// Lean.pay() executes against that connection — no redirect at all, so no
+// handoff is needed; the whole thing completes in this one JS session.
 export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted }) {
   const [amount, setAmount] = useState('500');
+  const [rail, setRail] = useState('of');
   const [method, setMethod] = useState('aof');
   const [loading, setLoading] = useState(false);
   // One id per attempt, so every call it takes (start, charge/checkout,
@@ -166,10 +169,74 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
     });
   };
 
+  const submitRe = async () => {
+    const { appToken, customerId, destinationId, paymentIntentId, accessToken } = await leanReApi.startTopup(
+      userId,
+      Number(amount),
+      topupGroupId,
+    );
+
+    // No localStorage handoff here, unlike AoF/SIP above — RE never leaves
+    // this page, so there's no real redirect for a reload to survive.
+    window.Lean.connect({
+      app_token: appToken,
+      customer_id: customerId,
+      access_token: accessToken,
+      payment_destination_id: destinationId,
+      permissions: ['payments'],
+      sandbox: true,
+      success_redirect_url: redirectUrl(),
+      fail_redirect_url: redirectUrl(),
+      // Same lesson as AoF/SIP's callbacks: only SUCCESS/CANCELLED are
+      // treated as final.
+      callback: (connectPayload) => {
+        console.log('[lean-re] connect callback:', connectPayload);
+
+        if (connectPayload.status === 'CANCELLED') {
+          setLoading(false);
+          return;
+        }
+        if (connectPayload.status !== 'SUCCESS') {
+          console.log('[lean-re] non-terminal connect status');
+          return;
+        }
+
+        // The bank is now connected — pay against it directly using the
+        // identifiers connect() just returned, no separate consent step.
+        window.Lean.pay({
+          app_token: appToken,
+          customer_id: customerId,
+          access_token: accessToken,
+          payment_intent_id: paymentIntentId,
+          bank_identifier: connectPayload.bank_identifier,
+          end_user_id: connectPayload.end_user_id,
+          sandbox: true,
+          success_redirect_url: redirectUrl(),
+          fail_redirect_url: redirectUrl(),
+          callback: (payPayload) => {
+            console.log('[lean-re] pay callback:', payPayload);
+
+            if (payPayload.status === 'CANCELLED') {
+              setLoading(false);
+              return;
+            }
+            if (payPayload.status !== 'SUCCESS') {
+              console.log('[lean-re] non-terminal pay status');
+              return;
+            }
+
+            onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 're', groupId: topupGroupId });
+          },
+        });
+      },
+    });
+  };
+
   const submit = async () => {
     setLoading(true);
     try {
-      if (method === 'aof') await submitAof();
+      if (rail === 're') await submitRe();
+      else if (method === 'aof') await submitAof();
       else await submitSip();
     } catch (err) {
       setError(err.message);
@@ -201,13 +268,40 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         />
       </div>
 
-      <label className="field">
-        Payment method
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
-          <option value="aof">AoF - Account on File</option>
-          <option value="sip">SIP - Single Instant Payment</option>
-        </select>
-      </label>
+      <div className="k" style={{ padding: '4px 4px 6px' }}>
+        Rail
+      </div>
+      <div className="rail-toggle">
+        <button
+          type="button"
+          className={rail === 'of' ? 'active' : ''}
+          onClick={() => setRail('of')}
+        >
+          OF
+        </button>
+        <button
+          type="button"
+          className={rail === 're' ? 'active' : ''}
+          onClick={() => setRail('re')}
+        >
+          RE
+        </button>
+      </div>
+
+      {rail === 'of' ? (
+        <label className="field">
+          Payment method
+          <select value={method} onChange={(e) => setMethod(e.target.value)}>
+            <option value="aof">AoF - Account on File</option>
+            <option value="sip">SIP - Single Instant Payment</option>
+          </select>
+        </label>
+      ) : (
+        <p className="muted" style={{ textAlign: 'center', margin: '4px 0 0' }}>
+          Reverse Engineered — connects directly to your bank (Lean.connect()), then pays against that connection
+          (Lean.pay()). No bank redirect.
+        </p>
+      )}
 
       <button className="btn btn-primary" disabled={loading || !(Number(amount) > 0)} onClick={submit} style={{ marginTop: 12 }}>
         {loading ? <span className="spinner" /> : `Pay ${amount || 0} AED`}

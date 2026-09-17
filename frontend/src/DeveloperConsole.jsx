@@ -19,9 +19,11 @@ const STEP_LABELS = {
   'aof-status': 'Track status',
   'sip-start': 'Create payment intent (SIP)',
   'sip-status': 'Track status',
+  're-start': 'Create payment intent (RE)',
+  're-status': 'Track status',
 };
 
-const TOPUP_METHOD_LABEL = { aof: 'Account on File', sip: 'Single Instant Payment' };
+const TOPUP_METHOD_LABEL = { aof: 'Account on File', sip: 'Single Instant Payment', re: 'Reverse Engineered' };
 
 function classifyGroup(groupId) {
   if (!groupId) return 'ungrouped';
@@ -31,12 +33,13 @@ function classifyGroup(groupId) {
   return 'transfer';
 }
 
-// AoF vs SIP, inferred from whichever categories actually show up in the
-// group — cheaper than threading a separate "method" field through every
-// call site just for the console's own display.
+// AoF vs SIP vs RE, inferred from whichever categories actually show up in
+// the group — cheaper than threading a separate "method" field through
+// every call site just for the console's own display.
 function topupMethodOf(calls) {
   if (calls.some((c) => c.category?.startsWith('aof'))) return 'aof';
   if (calls.some((c) => c.category?.startsWith('sip'))) return 'sip';
+  if (calls.some((c) => c.category?.startsWith('re-'))) return 're';
   return null;
 }
 
@@ -70,10 +73,12 @@ function summarize(call) {
     case 'aof-charge':
     case 'aof-status':
     case 'sip-status':
+    case 're-status':
       return p.status ? `${p.status}` : null;
     case 'aof-abandon':
       return p.ok ? 'consent abandoned' : null;
     case 'sip-start':
+    case 're-start':
       return p.paymentIntentId ? `intent ${p.paymentIntentId.slice(0, 8)}… — opening LinkSDK` : null;
     default:
       return null;

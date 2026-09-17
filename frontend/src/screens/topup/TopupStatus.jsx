@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { leanAofApi } from '../../leanAofApi.js';
 import { leanSipApi } from '../../leanSipApi.js';
+import { leanReApi } from '../../leanReApi.js';
 import { brand } from '../../brand.js';
 import { CheckIcon, ClockIcon, XIcon } from '../../icons.jsx';
 
 const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-// Same ACCEPTED_BY_BANK / PENDING_WITH_BANK / FAILED vocabulary for both
-// rails (see leanAof.js and leanSip.js), so this one screen polls either.
+// Same ACCEPTED_BY_BANK / PENDING_WITH_BANK / FAILED vocabulary for all
+// three rails (see leanAof.js, leanSip.js, leanRe.js), so this one screen
+// polls any of them.
 const TERMINAL = new Set(['ACCEPTED_BY_BANK', 'FAILED']);
-const API_BY_METHOD = { aof: leanAofApi, sip: leanSipApi };
+const API_BY_METHOD = { aof: leanAofApi, sip: leanSipApi, re: leanReApi };
 
 function classify(status) {
   if (status === 'ACCEPTED_BY_BANK') return 'success';

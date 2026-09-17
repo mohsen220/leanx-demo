@@ -19,7 +19,26 @@ const FIELD_GLOSSARY = {
   appToken: 'Identifies this application to Lean — the same value LinkSDK needs to know which app’s flow it’s running.',
   access_token: 'A short-lived, customer-scoped bearer token minted for LinkSDK — grants just enough scope for this one widget session, not a general API credential.',
   accessToken: 'A short-lived, customer-scoped bearer token minted for LinkSDK — grants just enough scope for this one widget session, not a general API credential.',
-  government_identifier: 'A government-issued ID Lean requires on file before it will create an Account-on-File consent for this customer.',
+  government_identifier: 'A government/business identifier Lean keeps on file for compliance — whose specific kind (Emirates ID for a person, trade license for a business, etc.) is named in the type field right alongside it.',
+  government_identifier_type: 'Which kind of government_identifier this is (e.g. "EMIRATES_ID", "TRADE_LICENSE_NUMBER") — the identifier’s own value sits in a matching field.',
+  app_user_id: 'Meridian’s own user id, sent to Lean so its customer record can be linked back to the right Meridian account.',
+
+  // ---- Meridian's own settlement destination (created once, reused for every AoF/SIP/RE payment) ----
+  bank_identifier: 'Which bank this destination account sits at, in Lean’s own internal bank-code system.',
+  display_name: 'The friendly label shown for this destination account inside any Lean-hosted UI.',
+  swift_code: 'The destination bank’s SWIFT/BIC code.',
+  bank_type: 'Whether this is a retail or business ("SME") account — affects which validation rules Lean applies to it.',
+  owner_type: 'Whether this destination account belongs to the end customer or to the business itself — Meridian’s settlement account is "CUSTOMER"-owned from Lean’s perspective since Meridian is Lean’s direct customer here.',
+  default: 'Whether this is the destination account used automatically when a call doesn’t specify one.',
+  ifsc: 'India’s bank-branch routing code — populated only for Indian destination accounts.',
+  sort_code: 'UK-style bank-branch routing code — populated only where that scheme applies.',
+  routing_number: 'US-style bank routing number — populated only where that scheme applies.',
+  transit_code: 'Canada-style bank transit routing code — populated only where that scheme applies.',
+  branch_address: 'The destination bank branch’s address, when Lean has one on file.',
+  currency_iso_code: 'The destination account’s own currency, when Lean reports one separately from the payment currency.',
+  postal_code: 'The postal/ZIP code on file for this destination account or address.',
+  address: 'The registered business or account-holder address on file for this record.',
+  city: 'The city on file for this record’s registered address.',
 
   // ---- consents (AoF / CMI) ----
   consent_id: 'The standing Account-on-File consent this call acts on — created once via POST /consents/v1/account-on-file, then reused for every future instant charge as long as it stays AUTHORISED.',

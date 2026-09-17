@@ -1101,3 +1101,46 @@ body:has(#root > .dc-root) {
   padding: 14px;
   border-top: 1px solid var(--dc-border);
 }
+
+.dc-field-guide {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--dc-accent-soft);
+  border: 1px solid var(--dc-border);
+  border-radius: 8px;
+}
+
+.dc-field-guide-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dc-accent);
+  margin-bottom: 8px;
+}
+
+.dc-field-guide-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid rgba(23, 27, 34, 0.06);
+}
+
+.dc-field-guide-row:first-of-type {
+  border-top: none;
+}
+
+.dc-field-guide-row code {
+  font-family: var(--dc-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--dc-text);
+  align-self: start;
+}
+
+.dc-field-guide-row span {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--dc-text-muted);
+}

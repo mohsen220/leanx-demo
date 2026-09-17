@@ -117,6 +117,29 @@ function highlightJson(value, ctx) {
   );
 }
 
+// Walks a request/response body and collects a description for every
+// distinct field name that has one — shown as an always-visible glossary
+// under the JSON, since a hover-only tooltip is invisible on a plain read
+// or a copy/paste (which is exactly how most people first look at this).
+function collectFieldDescriptions(value, ctx, seen, acc) {
+  if (!value || typeof value !== 'object') return acc;
+  if (Array.isArray(value)) {
+    for (const item of value) collectFieldDescriptions(item, ctx, seen, acc);
+    return acc;
+  }
+  for (const [key, val] of Object.entries(value)) {
+    if (!seen.has(key)) {
+      const desc = describeField(key, ctx);
+      if (desc) {
+        seen.add(key);
+        acc.push({ key, desc });
+      }
+    }
+    collectFieldDescriptions(val, ctx, seen, acc);
+  }
+  return acc;
+}
+
 function toCurl(call) {
   const base = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4100';
   let cmd = `curl -X ${call.method} '${base}${call.path}'`;
@@ -243,6 +266,14 @@ function FlowNode({ data }) {
 const NODE_TYPES = { flowNode: FlowNode };
 
 function CallDetail({ call, label }) {
+  const fields = useMemo(() => {
+    const seen = new Set();
+    const acc = [];
+    collectFieldDescriptions(call.payload, call, seen, acc);
+    collectFieldDescriptions(call.body, call, seen, acc);
+    return acc;
+  }, [call]);
+
   return (
     <div className="dc-section">
       <div className="dc-section-head">
@@ -259,6 +290,17 @@ function CallDetail({ call, label }) {
         </button>
       </div>
       <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.payload, call) }} />
+      {fields.length > 0 && (
+        <div className="dc-field-guide">
+          <div className="dc-field-guide-title">What these fields mean</div>
+          {fields.map((f) => (
+            <div className="dc-field-guide-row" key={f.key}>
+              <code>{f.key}</code>
+              <span>{f.desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {call.method !== 'SDK' && !UPSTREAM_CATEGORIES.has(call.category) && (
         <>
           <div className="dc-section-head" style={{ marginTop: 12 }}>
@@ -342,7 +384,7 @@ function NodeDrawer({ node, runs, onClose }) {
               </div>
             </div>
             <div className="dc-drawer-history-label">
-              History (newest first) <span className="dc-drawer-hint">hover a dotted field name below for what it means</span>
+              History (newest first) <span className="dc-drawer-hint">expand a call for its full request/response and a field-by-field guide</span>
             </div>
             {occurrences.length === 0 && (
               <div className="dc-empty-note">Not seen yet — use this step in the app to capture a real call here.</div>

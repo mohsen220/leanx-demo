@@ -13,6 +13,7 @@ import { transactionsRouter } from './routes/transactions.js';
 import { leanAofRouter } from './routes/leanAof.js';
 import { leanSipRouter } from './routes/leanSip.js';
 import { leanReRouter } from './routes/leanRe.js';
+import { leanConsentsRouter } from './routes/leanConsents.js';
 import { leanVerifyRouter } from './routes/leanVerify.js';
 import { swiftxConfig } from './swiftxConfig.js';
 
@@ -43,6 +44,7 @@ app.use('/api', transactionsRouter);
 app.use('/api', leanAofRouter);
 app.use('/api', leanSipRouter);
 app.use('/api', leanReRouter);
+app.use('/api', leanConsentsRouter);
 app.use('/api', leanVerifyRouter);
 
 app.use((err, _req, res, _next) => {

@@ -26,7 +26,11 @@ const STEP_LABELS = {
   'sdk-connect': 'Lean.connect()',
   'sdk-pay': 'Lean.pay()',
   'sdk-captureRedirect': 'Lean.captureRedirect()',
+  'consents-start': 'Start CMI session',
+  'sdk-manageConsents': 'Lean.manageConsents()',
 };
+
+const BG_GROUP_LABEL = { 'home-visit': 'Home refresh', 'history-visit': 'History visit', consents: 'Consent management' };
 
 const TOPUP_METHOD_LABEL = { aof: 'Account on File', sip: 'Single Instant Payment', re: 'Reverse Engineered' };
 // The rail-level grouping the customer actually chose between: AoF and SIP
@@ -38,6 +42,7 @@ function classifyGroup(groupId) {
   if (groupId.startsWith('home-')) return 'home-visit';
   if (groupId.startsWith('history-')) return 'history-visit';
   if (groupId.startsWith('topup-')) return 'topup';
+  if (groupId.startsWith('consents-')) return 'consents';
   return 'transfer';
 }
 
@@ -98,8 +103,11 @@ function summarize(call) {
     case 'sdk-connect':
     case 'sdk-pay':
     case 'sdk-captureRedirect':
+    case 'sdk-manageConsents':
       if (p.invoked) return 'widget opened';
       return p.status ? `callback → ${p.status}` : null;
+    case 'consents-start':
+      return p.customerId ? `customer ${p.customerId.slice(0, 8)}… — opening CMI` : null;
     default:
       return null;
   }
@@ -449,7 +457,7 @@ export function DeveloperConsole() {
                   className={`dc-bg-item ${selectedId === group.id ? 'selected' : ''}`}
                   onClick={() => setSelectedId(group.id)}
                 >
-                  <span>{group.kind === 'home-visit' ? 'Home refresh' : 'History visit'}</span>
+                  <span>{BG_GROUP_LABEL[group.kind] ?? 'Other activity'}</span>
                   <span className="count">{group.calls.length}</span>
                 </button>
               ))}
@@ -491,7 +499,7 @@ export function DeveloperConsole() {
           {selectedGroup &&
             selectedGroup.kind !== 'transfer' &&
             selectedGroup.kind !== 'topup' &&
-            renderTrace(selectedGroup.kind === 'home-visit' ? 'Home refresh' : 'History visit', null, null, selectedGroup.calls)}
+            renderTrace(BG_GROUP_LABEL[selectedGroup.kind] ?? 'Other activity', null, null, selectedGroup.calls)}
 
           {standaloneSelected && renderTrace('Other (uncorrelated) calls', null, null, standalone)}
         </section>

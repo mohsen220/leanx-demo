@@ -3,7 +3,7 @@ import { brand, indicativeRate } from '../brand.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
 import { TickerStrip } from '../components/TickerStrip.jsx';
-import { BankIcon, PlusIcon, SendIcon, UserIcon, LogoutIcon } from '../icons.jsx';
+import { BankIcon, PlusIcon, SendIcon, UserIcon, ShieldIcon, LogoutIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
 
@@ -26,6 +26,7 @@ export function Home({
   sender,
   onSendTo,
   onOpenProfile,
+  onOpenConsents,
   onTopUp,
   onLogout,
 }) {
@@ -67,6 +68,14 @@ export function Home({
                   }}
                 >
                   <UserIcon width={16} height={16} /> Profile
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenConsents();
+                  }}
+                >
+                  <ShieldIcon width={16} height={16} /> Manage consents
                 </button>
                 <button
                   onClick={() => {

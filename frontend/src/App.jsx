@@ -11,6 +11,7 @@ import { SendFlow } from './screens/SendFlow.jsx';
 import { TopUp } from './screens/TopUp.jsx';
 import { History } from './screens/History.jsx';
 import { Profile } from './screens/Profile.jsx';
+import { ManageConsents } from './screens/ManageConsents.jsx';
 import { SignalIcon, WifiIcon, BatteryIcon } from './icons.jsx';
 
 const NAV_SCREENS = new Set(['home', 'history']);
@@ -374,6 +375,7 @@ export default function App() {
                 sender={sender}
                 onSendTo={startSend}
                 onOpenProfile={() => setScreen('profile')}
+                onOpenConsents={() => setScreen('consents')}
                 onTopUp={() => setScreen('topup')}
                 onLogout={logout}
               />
@@ -418,6 +420,10 @@ export default function App() {
                 onVerified={refreshSender}
                 setError={setError}
               />
+            )}
+
+            {ready && screen === 'consents' && (
+              <ManageConsents userId={sender.id} onBack={() => setScreen('home')} setError={setError} />
             )}
 
             {ready && NAV_SCREENS.has(screen) && <BottomNav active={screen} onNavigate={handleNavigate} />}

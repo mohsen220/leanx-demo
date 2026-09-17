@@ -131,6 +131,12 @@ export const AdminIcon = (props) => (
   </svg>
 );
 
+export const ShieldIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M12 3 4 6v6c0 4.6 3.2 8.2 8 9 4.8-.8 8-4.4 8-9V6l-8-3Z" />
+  </svg>
+);
+
 export const BatteryIcon = (props) => (
   <svg width="25" height="12" viewBox="0 0 25 12" fill="none" {...props}>
     <rect x="1" y="1" width="20" height="10" rx="2.6" stroke="currentColor" strokeWidth="1" opacity="0.35" />

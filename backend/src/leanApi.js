@@ -1,5 +1,6 @@
 import { leanConfig } from './leanConfig.js';
 import { getApiToken, getCustomerToken } from './leanAuth.js';
+import { recordUpstreamCall } from './requestContext.js';
 
 let requestCounter = 0;
 
@@ -16,6 +17,7 @@ function truncate(value, max = 4000) {
 // string, in which case a `customer.<id>` scoped token is minted instead.
 export async function leanRequest({ method = 'GET', path, query, body, scope = 'api', headers = {} }) {
   const id = ++requestCounter;
+  const startedAt = Date.now();
   const accessToken =
     scope === 'api' ? await getApiToken() : (await getCustomerToken(scope)).accessToken;
 
@@ -48,6 +50,17 @@ export async function leanRequest({ method = 'GET', path, query, body, scope = '
 
   console.log(`[lean ←${id}] ${res.status} ${res.statusText}`);
   console.log(`[lean ←${id}] response: ${truncate(payload)}\n`);
+
+  recordUpstreamCall({
+    api: 'lean',
+    method,
+    path: `${url.pathname}${url.search}`,
+    status: res.status,
+    requestBody: hasBody ? body : undefined,
+    responseBody: payload,
+    startedAt,
+    endedAt: Date.now(),
+  });
 
   return { status: res.status, ok: res.ok, payload };
 }

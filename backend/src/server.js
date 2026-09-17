@@ -16,6 +16,7 @@ import { leanReRouter } from './routes/leanRe.js';
 import { leanConsentsRouter } from './routes/leanConsents.js';
 import { leanVerifyRouter } from './routes/leanVerify.js';
 import { swiftxConfig } from './swiftxConfig.js';
+import { withRequestContext, getUpstreamCalls } from './requestContext.js';
 
 const app = express();
 
@@ -27,6 +28,25 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     console.log(`[backend ←] ${req.method} ${req.originalUrl} → ${res.statusCode} (${Date.now() - start}ms)`);
   });
+  next();
+});
+
+app.use(withRequestContext);
+
+// Transparently rides the real Lean/SwiftX API calls a request made along
+// with the response, under `_upstream` — every lean*Api.js/api.js client
+// unpacks and re-logs these into the Developer Console, so it can show the
+// actual upstream calls behind our own route instead of just the route
+// itself. No route handler needs to know this exists.
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    const upstream = getUpstreamCalls();
+    if (upstream.length && body && typeof body === 'object' && !Array.isArray(body)) {
+      return originalJson({ ...body, _upstream: upstream });
+    }
+    return originalJson(body);
+  };
   next();
 });
 

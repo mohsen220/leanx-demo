@@ -114,6 +114,42 @@ function redactSdkConfig(config) {
 // non-terminal firings some LinkSDK callbacks are known to send, since
 // showing those (rather than only the final outcome) is the actual point
 // of a "what is the SDK really doing" trace.
+// Unpacks the `_upstream` array the backend transparently attaches to any
+// JSON response (see requestContext.js/server.js) — the real Lean/SwiftX
+// API calls made while handling that request — and logs each as its own
+// out+in pair under the same journey `group`, category 'lean-api'. This is
+// what lets the Developer Console show the actual upstream calls behind our
+// own route, not just the route itself. Every lean*Api.js/api.js client
+// calls this right after receiving a response.
+export function logUpstreamCalls(payload, group) {
+  const upstream = payload?._upstream;
+  if (!Array.isArray(upstream) || !upstream.length) return;
+  for (const u of upstream) {
+    const id = crypto.randomUUID();
+    publishLogEntry({
+      id,
+      dir: 'out',
+      method: u.method,
+      path: u.path,
+      body: u.requestBody,
+      group,
+      category: `${u.api}-api`,
+      time: u.startedAt,
+    });
+    publishLogEntry({
+      id,
+      dir: 'in',
+      status: u.status,
+      path: u.path,
+      payload: u.responseBody,
+      group,
+      category: `${u.api}-api`,
+      time: u.endedAt,
+    });
+  }
+  delete payload._upstream;
+}
+
 export function logSdkEvent({ method, group, kind, config, payload }) {
   const id = crypto.randomUUID();
   const time = Date.now();

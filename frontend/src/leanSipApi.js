@@ -4,7 +4,7 @@
 // Every call publishes into the same shared logStore.js the SwiftX
 // remittance flow uses (api.js), so a top-up traces in the Developer
 // Console exactly like a transfer does.
-import { publishLogEntry } from './logStore.js';
+import { publishLogEntry, logUpstreamCalls } from './logStore.js';
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4100';
 
@@ -23,6 +23,7 @@ async function leanRequest(path, { group, category, ...options } = {}) {
   const payload = await res.json();
 
   console.log(`[lean-sip ←${id}] ${res.status} ${path}`, payload);
+  logUpstreamCalls(payload, group);
   publishLogEntry({ id, dir: 'in', status: res.status, path, payload, group, category, time: Date.now() });
 
   if (!res.ok) throw new Error(payload.error ?? `Request to ${path} failed`);

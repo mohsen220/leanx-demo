@@ -1,6 +1,7 @@
 import { swiftxConfig } from './swiftxConfig.js';
 import { getSwiftxToken } from './swiftxAuth.js';
 import * as mock from './mockSwiftx.js';
+import { recordUpstreamCall } from './requestContext.js';
 
 let requestCounter = 0;
 
@@ -72,6 +73,7 @@ function flattenPaymentOrderInfo(raw) {
 // ([swiftx] vs [mock]) is the only visible difference.
 async function call(label, { method, path, query, body }, mockFn) {
   const id = ++requestCounter;
+  const startedAt = Date.now();
   const tag = swiftxConfig.mockMode ? 'mock' : 'swiftx';
   const qs = query
     ? '?' + new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== ''))
@@ -100,6 +102,17 @@ async function call(label, { method, path, query, body }, mockFn) {
 
   console.log(`[${tag} ←${id}] ${status}`);
   console.log(`[${tag} ←${id}] response: ${truncate(payload)}\n`);
+
+  recordUpstreamCall({
+    api: tag, // 'mock' or 'swiftx' — the console shows this distinctly from real Lean calls
+    method,
+    path: `${path}${qs}`,
+    status,
+    requestBody: body,
+    responseBody: payload,
+    startedAt,
+    endedAt: Date.now(),
+  });
 
   if (!ok) {
     const err = new Error(`SwiftX ${label} failed (${status}): ${truncate(payload)}`);

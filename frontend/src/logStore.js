@@ -150,6 +150,13 @@ export function logUpstreamCalls(payload, group) {
   delete payload._upstream;
 }
 
+// manageConsents is a view/manage widget, not something to authorize or
+// complete — there's nothing to "back out of," so however the customer
+// closes it (CANCELLED included) is a normal terminal outcome, not a
+// failure. Only authorization-style methods (authorizeConsent, checkout,
+// connect, pay) have a real "gave up before finishing" case.
+const VIEW_ONLY_SDK_METHODS = new Set(['manageConsents']);
+
 export function logSdkEvent({ method, group, kind, config, payload }) {
   const id = crypto.randomUUID();
   const time = Date.now();
@@ -161,7 +168,14 @@ export function logSdkEvent({ method, group, kind, config, payload }) {
   // progress," not an error. Coding it as a 4xx here would show a red
   // "failed" pill on a step that's actually pending — `null` renders as
   // the same "···" pending state a call still in flight gets.
-  const status = kind === 'invoke' ? 200 : payload?.status === 'SUCCESS' ? 200 : payload?.status === 'CANCELLED' ? 499 : null;
+  const status =
+    kind === 'invoke' || VIEW_ONLY_SDK_METHODS.has(method)
+      ? 200
+      : payload?.status === 'SUCCESS'
+        ? 200
+        : payload?.status === 'CANCELLED'
+          ? 499
+          : null;
 
   publishLogEntry({
     id,

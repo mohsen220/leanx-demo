@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
 import { ledgerApi } from './ledgerApi.js';
 import { leanAofApi } from './leanAofApi.js';
+import { logSdkEvent } from './logStore.js';
 import { getActiveUserId, setActiveUserId, clearActiveUserId } from './stores.js';
 import { BottomNav } from './components/BottomNav.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
@@ -70,11 +71,14 @@ function captureLeanRedirect(pending) {
     if (config[key] == null) delete config[key];
   }
 
+  logSdkEvent({ method: 'captureRedirect', group: pending.groupId, kind: 'invoke', config });
+
   return new Promise((resolve) => {
     window.Lean.captureRedirect({
       ...config,
       callback: (payload) => {
         console.log('[lean] captureRedirect callback:', payload);
+        logSdkEvent({ method: 'captureRedirect', group: pending.groupId, kind: 'callback', payload });
         resolve(payload);
       },
     });

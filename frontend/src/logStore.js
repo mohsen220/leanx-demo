@@ -91,3 +91,53 @@ export function clearLog() {
   persist(calls);
   notify();
 }
+
+// Drops anything unserializable/sensitive from a LinkSDK config object
+// before it's logged: `callback` is a function (JSON.stringify would just
+// silently omit it anyway, but this is explicit), and access_token is a
+// full JWT — truncated so it's still recognizable without dumping the
+// whole token into a log every screen can read.
+function redactSdkConfig(config) {
+  const { callback: _callback, ...rest } = config ?? {};
+  if (rest.access_token) rest.access_token = `${rest.access_token.slice(0, 12)}…`;
+  return rest;
+}
+
+// Every LinkSDK method call site (EnterTopupAmount.jsx, App.jsx) logs
+// through this — one entry per SDK-level event, alongside the REST calls
+// api.js/leanAofApi.js/leanSipApi.js/leanReApi.js already log, so the
+// Developer Console can show the two interleaved: e.g. "POST
+// /api/lean/sip/topup" immediately followed by "Lean.checkout()" for the
+// same top-up. Call once when invoking the method (kind: 'invoke',
+// config: the object passed in) and once per callback firing (kind:
+// 'callback', payload: what the callback received) — including early,
+// non-terminal firings some LinkSDK callbacks are known to send, since
+// showing those (rather than only the final outcome) is the actual point
+// of a "what is the SDK really doing" trace.
+export function logSdkEvent({ method, group, kind, config, payload }) {
+  const id = crypto.randomUUID();
+  const time = Date.now();
+  const request = kind === 'invoke' ? redactSdkConfig(config) : undefined;
+  const status = kind === 'invoke' ? 200 : payload?.status === 'SUCCESS' ? 200 : payload?.status === 'CANCELLED' ? 499 : 400;
+
+  publishLogEntry({
+    id,
+    dir: 'out',
+    method: 'SDK',
+    path: `Lean.${method}()`,
+    body: request,
+    group,
+    category: `sdk-${method}`,
+    time,
+  });
+  publishLogEntry({
+    id,
+    dir: 'in',
+    status,
+    path: `Lean.${method}()`,
+    payload: kind === 'invoke' ? { invoked: true } : payload,
+    group,
+    category: `sdk-${method}`,
+    time,
+  });
+}

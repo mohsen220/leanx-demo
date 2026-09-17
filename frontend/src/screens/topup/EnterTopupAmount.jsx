@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { leanAofApi } from '../../leanAofApi.js';
 import { leanSipApi } from '../../leanSipApi.js';
 import { leanReApi } from '../../leanReApi.js';
+import { logSdkEvent } from '../../logStore.js';
 import { brand } from '../../brand.js';
 import { BackIcon } from '../../icons.jsx';
 
@@ -55,7 +56,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
     );
     console.log('[lean-aof] persisted pending charge before authorization:', localStorage.getItem('falcon_pending_aof_charge'));
 
-    window.Lean.authorizeConsent({
+    const authorizeConsentConfig = {
       app_token: appToken,
       customer_id: customerId,
       consent_id: consentId,
@@ -83,6 +84,11 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       // risk corrupting state on a guess.
       callback: async (payload) => {
         console.log('[lean-aof] authorizeConsent callback:', payload);
+        // Logged for every firing, not just the terminal one — including
+        // the early, non-terminal calls documented above, since surfacing
+        // exactly what the SDK is doing (unreliability included) is the
+        // whole point of this trace.
+        logSdkEvent({ method: 'authorizeConsent', group: topupGroupId, kind: 'callback', payload });
 
         if (payload.status === 'CANCELLED') {
           localStorage.removeItem('falcon_pending_aof_charge');
@@ -104,7 +110,9 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
           setLoading(false);
         }
       },
-    });
+    };
+    logSdkEvent({ method: 'authorizeConsent', group: topupGroupId, kind: 'invoke', config: authorizeConsentConfig });
+    window.Lean.authorizeConsent(authorizeConsentConfig);
   };
 
   const submitSip = async () => {
@@ -136,7 +144,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
     // single-instant-payments): create the intent, then LinkSDK's
     // checkout(payment_intent_id) — not pay(), which is for a standalone
     // payment source rather than an Open Finance SIP intent.
-    window.Lean.checkout({
+    const checkoutConfig = {
       app_token: appToken,
       customer_id: customerId,
       payment_intent_id: paymentIntentId,
@@ -151,6 +159,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       // the payment — so this just starts polling the intent for settlement.
       callback: (payload) => {
         console.log('[lean-sip] checkout callback:', payload);
+        logSdkEvent({ method: 'checkout', group: topupGroupId, kind: 'callback', payload });
 
         if (payload.status === 'CANCELLED') {
           localStorage.removeItem('falcon_pending_sip_topup');
@@ -166,7 +175,9 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         localStorage.removeItem('falcon_pending_sip_topup');
         onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 'sip', groupId: topupGroupId });
       },
-    });
+    };
+    logSdkEvent({ method: 'checkout', group: topupGroupId, kind: 'invoke', config: checkoutConfig });
+    window.Lean.checkout(checkoutConfig);
   };
 
   const submitRe = async () => {
@@ -178,7 +189,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
 
     // No localStorage handoff here, unlike AoF/SIP above — RE never leaves
     // this page, so there's no real redirect for a reload to survive.
-    window.Lean.connect({
+    const connectConfig = {
       app_token: appToken,
       customer_id: customerId,
       access_token: accessToken,
@@ -191,6 +202,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       // treated as final.
       callback: (connectPayload) => {
         console.log('[lean-re] connect callback:', connectPayload);
+        logSdkEvent({ method: 'connect', group: topupGroupId, kind: 'callback', payload: connectPayload });
 
         if (connectPayload.status === 'CANCELLED') {
           setLoading(false);
@@ -203,7 +215,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
 
         // The bank is now connected — pay against it directly using the
         // identifiers connect() just returned, no separate consent step.
-        window.Lean.pay({
+        const payConfig = {
           app_token: appToken,
           customer_id: customerId,
           access_token: accessToken,
@@ -215,6 +227,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
           fail_redirect_url: redirectUrl(),
           callback: (payPayload) => {
             console.log('[lean-re] pay callback:', payPayload);
+            logSdkEvent({ method: 'pay', group: topupGroupId, kind: 'callback', payload: payPayload });
 
             if (payPayload.status === 'CANCELLED') {
               setLoading(false);
@@ -227,9 +240,13 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
 
             onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 're', groupId: topupGroupId });
           },
-        });
+        };
+        logSdkEvent({ method: 'pay', group: topupGroupId, kind: 'invoke', config: payConfig });
+        window.Lean.pay(payConfig);
       },
-    });
+    };
+    logSdkEvent({ method: 'connect', group: topupGroupId, kind: 'invoke', config: connectConfig });
+    window.Lean.connect(connectConfig);
   };
 
   const submit = async () => {

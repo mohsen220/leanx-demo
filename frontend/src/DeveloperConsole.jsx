@@ -21,9 +21,17 @@ const STEP_LABELS = {
   'sip-status': 'Track status',
   're-start': 'Create payment intent (RE)',
   're-status': 'Track status',
+  'sdk-authorizeConsent': 'Lean.authorizeConsent()',
+  'sdk-checkout': 'Lean.checkout()',
+  'sdk-connect': 'Lean.connect()',
+  'sdk-pay': 'Lean.pay()',
+  'sdk-captureRedirect': 'Lean.captureRedirect()',
 };
 
 const TOPUP_METHOD_LABEL = { aof: 'Account on File', sip: 'Single Instant Payment', re: 'Reverse Engineered' };
+// The rail-level grouping the customer actually chose between: AoF and SIP
+// are both Open Finance under the hood, RE is the separate mechanism.
+const TOPUP_RAIL_LABEL = { aof: 'OF', sip: 'OF', re: 'RE' };
 
 function classifyGroup(groupId) {
   if (!groupId) return 'ungrouped';
@@ -35,11 +43,16 @@ function classifyGroup(groupId) {
 
 // AoF vs SIP vs RE, inferred from whichever categories actually show up in
 // the group — cheaper than threading a separate "method" field through
-// every call site just for the console's own display.
+// every call site just for the console's own display. Checked against both
+// the REST categories (leanAofApi.js etc.) and the SDK-call categories
+// (logSdkEvent in EnterTopupAmount.jsx/App.jsx), since either can be the
+// first call logged for a given journey.
 function topupMethodOf(calls) {
-  if (calls.some((c) => c.category?.startsWith('aof'))) return 'aof';
-  if (calls.some((c) => c.category?.startsWith('sip'))) return 'sip';
-  if (calls.some((c) => c.category?.startsWith('re-'))) return 're';
+  if (calls.some((c) => c.category?.startsWith('aof') || c.category === 'sdk-authorizeConsent')) return 'aof';
+  if (calls.some((c) => c.category?.startsWith('sip') || c.category === 'sdk-checkout')) return 'sip';
+  if (calls.some((c) => c.category?.startsWith('re-') || c.category === 'sdk-connect' || c.category === 'sdk-pay')) {
+    return 're';
+  }
   return null;
 }
 
@@ -80,6 +93,13 @@ function summarize(call) {
     case 'sip-start':
     case 're-start':
       return p.paymentIntentId ? `intent ${p.paymentIntentId.slice(0, 8)}… — opening LinkSDK` : null;
+    case 'sdk-authorizeConsent':
+    case 'sdk-checkout':
+    case 'sdk-connect':
+    case 'sdk-pay':
+    case 'sdk-captureRedirect':
+      if (p.invoked) return 'widget opened';
+      return p.status ? `callback → ${p.status}` : null;
     default:
       return null;
   }
@@ -389,7 +409,7 @@ export function DeveloperConsole() {
             );
           })}
 
-          <div className="dc-section-label">Top-ups — AoF &amp; SIP ({visibleTopups.length})</div>
+          <div className="dc-section-label">Top-ups — OF &amp; RE ({visibleTopups.length})</div>
           {visibleTopups.length === 0 && (
             <div className="dc-empty-note">No top-ups yet. Top up your balance in the app to see one traced here, live.</div>
           )}
@@ -401,6 +421,7 @@ export function DeveloperConsole() {
             >
               <div className="dc-journey-top">
                 <BankIcon width={16} height={16} />
+                {group.method && <span className="dc-rail-badge">{TOPUP_RAIL_LABEL[group.method]}</span>}
                 <span className="name">{group.method ? TOPUP_METHOD_LABEL[group.method] : 'Top-up'}</span>
                 <span className={`dc-status-pill ${group.status ?? 'pending'}`}>{group.status ?? 'in progress'}</span>
               </div>
@@ -462,7 +483,7 @@ export function DeveloperConsole() {
             selectedGroup.kind === 'topup' &&
             renderTrace(
               selectedGroup.method ? TOPUP_METHOD_LABEL[selectedGroup.method] : 'Top-up',
-              null,
+              selectedGroup.method ? <span className="dc-rail-badge">{TOPUP_RAIL_LABEL[selectedGroup.method]}</span> : null,
               <span className={`dc-status-pill ${selectedGroup.status ?? 'pending'}`}>{selectedGroup.status ?? 'in progress'}</span>,
               selectedGroup.calls,
             )}

@@ -505,6 +505,36 @@ body:has(#root > .dc-root) {
 
 .dc-section {
   margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px dashed var(--dc-border);
+}
+
+.dc-section:last-child {
+  border-bottom: none;
+}
+
+.dc-call-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dc-call-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dc-accent);
+}
+
+.dc-call-endpoint {
+  font-family: var(--dc-mono);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--dc-text);
+  word-break: break-all;
 }
 
 .dc-section-head {

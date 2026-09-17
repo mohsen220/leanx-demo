@@ -276,15 +276,21 @@ function CallDetail({ call, label }) {
 
   return (
     <div className="dc-section">
+      <div className="dc-call-head">
+        <span className="dc-call-label">{label}</span>
+        <code className="dc-call-endpoint">
+          {call.method} {call.path}
+        </code>
+      </div>
       <div className="dc-section-head">
-        <span className="dc-section-title">{label} — Request</span>
+        <span className="dc-section-title">Request</span>
         <button className="dc-copy-btn" onClick={() => navigator.clipboard?.writeText(JSON.stringify(call.body ?? {}, null, 2))}>
           Copy JSON
         </button>
       </div>
       <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.body, call) }} />
       <div className="dc-section-head" style={{ marginTop: 12 }}>
-        <span className="dc-section-title">{label} — Response</span>
+        <span className="dc-section-title">Response</span>
         <button className="dc-copy-btn" onClick={() => navigator.clipboard?.writeText(JSON.stringify(call.payload ?? {}, null, 2))}>
           Copy JSON
         </button>

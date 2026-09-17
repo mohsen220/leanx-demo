@@ -307,7 +307,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
       </div>
 
       <div className="k" style={{ padding: '4px 4px 6px' }}>
-        Rail
+        Method
       </div>
       <div className="rail-toggle">
         <button

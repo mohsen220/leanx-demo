@@ -557,6 +557,11 @@ body:has(#root > .dc-root) {
 .dc-pre .n { color: #953800; }
 .dc-pre .b { color: #cf222e; }
 
+.dc-pre .k.desc {
+  border-bottom: 1px dotted #0550ae;
+  cursor: help;
+}
+
 /* ---------------------------------------------------------------- product nav */
 
 .dc-product-nav-item {
@@ -1044,6 +1049,14 @@ body:has(#root > .dc-root) {
   text-transform: uppercase;
   color: var(--dc-text-faint);
   margin-bottom: 10px;
+}
+
+.dc-drawer-hint {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--dc-text-faint);
+  opacity: 0.8;
 }
 
 .dc-occurrence {

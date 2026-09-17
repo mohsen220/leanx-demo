@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { getLog, subscribeLog, clearLog } from './logStore.js';
 import { BoltIcon, BankIcon, ShieldIcon, CheckIcon } from './icons.jsx';
 import { FLOW_GRAPHS } from './flowGraphs.js';
+import { describeField } from './fieldGlossary.js';
 
 const PRODUCTS = [
   { id: 'leanx', label: 'Lean X', sublabel: 'Cross-border transfers', icon: BoltIcon },
@@ -90,7 +91,14 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function highlightJson(value) {
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+// `ctx` (a call's {category, path}) lets a field like `status` — which
+// means a different thing on nearly every endpoint — resolve to the right
+// description instead of one generic guess. See fieldGlossary.js.
+function highlightJson(value, ctx) {
   if (value === undefined) return '<span style="opacity:.5">— no payload —</span>';
   const escaped = escapeHtml(JSON.stringify(value, null, 2));
   return escaped.replace(
@@ -99,6 +107,11 @@ function highlightJson(value) {
       let cls = 'n';
       if (/^"/.test(match)) cls = /:$/.test(match) ? 'k' : 's';
       else if (/true|false|null/.test(match)) cls = 'b';
+      if (cls === 'k') {
+        const fieldName = match.replace(/^"|"(\s*:)?$/g, '');
+        const desc = describeField(fieldName, ctx);
+        if (desc) return `<span class="k desc" title="${escapeAttr(desc)}">${match}</span>`;
+      }
       return `<span class="${cls}">${match}</span>`;
     },
   );
@@ -238,14 +251,14 @@ function CallDetail({ call, label }) {
           Copy JSON
         </button>
       </div>
-      <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.body) }} />
+      <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.body, call) }} />
       <div className="dc-section-head" style={{ marginTop: 12 }}>
         <span className="dc-section-title">{label} — Response</span>
         <button className="dc-copy-btn" onClick={() => navigator.clipboard?.writeText(JSON.stringify(call.payload ?? {}, null, 2))}>
           Copy JSON
         </button>
       </div>
-      <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.payload) }} />
+      <pre className="dc-pre" dangerouslySetInnerHTML={{ __html: highlightJson(call.payload, call) }} />
       {call.method !== 'SDK' && !UPSTREAM_CATEGORIES.has(call.category) && (
         <>
           <div className="dc-section-head" style={{ marginTop: 12 }}>
@@ -328,7 +341,9 @@ function NodeDrawer({ node, runs, onClose }) {
                 <span className="lbl">Success rate</span>
               </div>
             </div>
-            <div className="dc-drawer-history-label">History (newest first)</div>
+            <div className="dc-drawer-history-label">
+              History (newest first) <span className="dc-drawer-hint">hover a dotted field name below for what it means</span>
+            </div>
             {occurrences.length === 0 && (
               <div className="dc-empty-note">Not seen yet — use this step in the app to capture a real call here.</div>
             )}

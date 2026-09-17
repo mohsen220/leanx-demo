@@ -298,8 +298,7 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
         </label>
       ) : (
         <p className="muted" style={{ textAlign: 'center', margin: '4px 0 0' }}>
-          Reverse Engineered — connects directly to your bank (Lean.connect()), then pays against that connection
-          (Lean.pay()). No bank redirect.
+          Reverse Engineered — connect() + pay()
         </p>
       )}
 

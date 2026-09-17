@@ -154,7 +154,14 @@ export function logSdkEvent({ method, group, kind, config, payload }) {
   const id = crypto.randomUUID();
   const time = Date.now();
   const request = kind === 'invoke' ? redactSdkConfig(config) : undefined;
-  const status = kind === 'invoke' ? 200 : payload?.status === 'SUCCESS' ? 200 : payload?.status === 'CANCELLED' ? 499 : 400;
+  // A callback whose status is neither SUCCESS nor CANCELLED isn't a
+  // failure — some LinkSDK methods (authorizeConsent in particular) are
+  // documented to fire an early, non-terminal callback before the real
+  // outcome arrives, and callers correctly treat it as "still in
+  // progress," not an error. Coding it as a 4xx here would show a red
+  // "failed" pill on a step that's actually pending — `null` renders as
+  // the same "···" pending state a call still in flight gets.
+  const status = kind === 'invoke' ? 200 : payload?.status === 'SUCCESS' ? 200 : payload?.status === 'CANCELLED' ? 499 : null;
 
   publishLogEntry({
     id,

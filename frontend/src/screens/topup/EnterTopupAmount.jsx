@@ -254,8 +254,16 @@ export function EnterTopupAmount({ userId, setError, onBack, onPaymentStarted })
             onPaymentStarted({ paymentId: paymentIntentId, amount: Number(amount), method: 're', groupId: topupGroupId });
           },
         };
-        logSdkEvent({ method: 'pay', group: topupGroupId, kind: 'invoke', config: payConfig });
-        window.Lean.pay(payConfig);
+        // Calling pay() synchronously, inside connect()'s own callback,
+        // risks racing the connect() widget's own teardown (it's still
+        // closing when this runs) — a short delay lets that finish before
+        // a second LinkSDK widget opens on top of it.
+        console.log('[lean-re] connect succeeded, opening pay() shortly:', payConfig);
+        setTimeout(() => {
+          console.log('[lean-re] invoking pay() now');
+          logSdkEvent({ method: 'pay', group: topupGroupId, kind: 'invoke', config: payConfig });
+          window.Lean.pay(payConfig);
+        }, 400);
       },
     };
     logSdkEvent({ method: 'connect', group: topupGroupId, kind: 'invoke', config: connectConfig });

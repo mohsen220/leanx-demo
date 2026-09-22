@@ -29,3 +29,9 @@ export function indicativeRate(corridor, currency) {
   const usdPerUnit = USD_PER_UNIT[currency] ?? 1;
   return corridor.rate * usdPerUnit;
 }
+
+// Same peg used above, exposed directly for converting an amount already
+// in the home currency (e.g. the customer's own balance) into USD.
+export function homeCurrencyToUsd(amount) {
+  return amount * (USD_PER_UNIT[brand.homeCurrency] ?? 1);
+}

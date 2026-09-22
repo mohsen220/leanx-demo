@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { brand, indicativeRate } from '../brand.js';
+import { brand, indicativeRate, homeCurrencyToUsd } from '../brand.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
 import { TickerStrip } from '../components/TickerStrip.jsx';
+import { BalanceCarousel } from '../components/BalanceCarousel.jsx';
 import { BankIcon, PlusIcon, SendIcon, UserIcon, ShieldIcon, LogoutIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
@@ -32,8 +33,33 @@ export function Home({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const corridorByCode = Object.fromEntries(corridors.map((c) => [c.code, c]));
+  // The Send flow only offers `corridors` (India-only in this demo — see
+  // App.jsx's DEMO_CORRIDOR_CODES), but the rate ticker below is deliberately
+  // shown for a broader set via the separate `tickerCorridors` prop. The
+  // balance carousel's conversions ride on that same broader set, not the
+  // narrower `corridors`, so PKR/NGN don't silently disappear.
+  const tickerCorridorByCode = Object.fromEntries(tickerCorridors.map((c) => [c.code, c]));
   const firstName = sender.sender_name.split(' ')[0];
   const sortedRecipients = [...recipients].sort((a, b) => (b.lastSentAt ?? 0) - (a.lastSentAt ?? 0));
+
+  // Same rate source the ticker below already uses (a real cached quote if
+  // one exists, otherwise the indicative peg) — so the carousel and
+  // "Today's rates" never disagree on the same screen.
+  const rateFor = (code) => {
+    const corridor = tickerCorridorByCode[code];
+    return corridor ? getCachedRate(corridor.code) ?? indicativeRate(corridor, brand.homeCurrency) : null;
+  };
+  const inrRate = rateFor('IND');
+  const pkrRate = rateFor('PAK');
+  const ngnRate = rateFor('NGA');
+
+  const balanceEntries = [
+    { code: brand.homeCurrency, flag: '🇦🇪', amount: sender.balance, isBase: true },
+    { code: 'USD', flag: '🇺🇸', amount: homeCurrencyToUsd(sender.balance) },
+    inrRate != null && { code: 'INR', flag: tickerCorridorByCode.IND?.flag ?? '🇮🇳', amount: sender.balance * inrRate },
+    pkrRate != null && { code: 'PKR', flag: tickerCorridorByCode.PAK?.flag ?? '🇵🇰', amount: sender.balance * pkrRate },
+    ngnRate != null && { code: 'NGN', flag: tickerCorridorByCode.NGA?.flag ?? '🇳🇬', amount: sender.balance * ngnRate },
+  ].filter(Boolean);
 
   return (
     <div className="phone-screen">
@@ -91,11 +117,7 @@ export function Home({
         </div>
       </div>
 
-      <div className="balance-hero">
-        <div className="label">Your balance</div>
-        <div className="amount">{fmt(sender.balance)}</div>
-        <div className="currency-tag">{brand.homeCurrency}</div>
-      </div>
+      <BalanceCarousel entries={balanceEntries} />
 
       <div className="pill-actions">
         <button className="pill-action" onClick={onTopUp}>

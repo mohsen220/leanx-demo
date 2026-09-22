@@ -3,8 +3,8 @@ import { db } from '../db.js';
 
 export const transactionsRouter = Router();
 
-// The customer's own History screen passes ?userId=; the admin dashboard
-// omits it to see every customer's transfers.
+// The customer's own History screen passes ?userId=; omitting it returns
+// every customer's transfers.
 transactionsRouter.get('/transactions', (req, res) => {
   const { userId } = req.query;
   let list = db.transactions.all();

@@ -34,6 +34,5 @@ export const ledgerApi = {
   saveRecipient: (userId, recipient) =>
     ledgerRequest(`/api/users/${userId}/recipients`, { method: 'POST', body: JSON.stringify(recipient) }),
 
-  // Omit userId to get every customer's transactions (the admin dashboard).
   listTransactions: (userId) => ledgerRequest(`/api/transactions${qs({ userId })}`),
 };

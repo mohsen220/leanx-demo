@@ -124,13 +124,6 @@ export const LogoutIcon = (props) => (
   </svg>
 );
 
-export const AdminIcon = (props) => (
-  <svg {...base} {...props}>
-    <path d="M12 3 4 6v6c0 4.6 3.2 8.2 8 9 4.8-.8 8-4.4 8-9V6l-8-3Z" />
-    <path d="M9 12l2 2 4-4" />
-  </svg>
-);
-
 export const ShieldIcon = (props) => (
   <svg {...base} {...props}>
     <path d="M12 3 4 6v6c0 4.6 3.2 8.2 8 9 4.8-.8 8-4.4 8-9V6l-8-3Z" />

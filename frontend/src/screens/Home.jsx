@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { brand, indicativeRate, homeCurrencyToUsd } from '../brand.js';
+import { CURRENCY_NAME, flagImgFor } from '../currencies.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
 import { TickerStrip } from '../components/TickerStrip.jsx';
@@ -7,13 +8,6 @@ import { BalanceCarousel } from '../components/BalanceCarousel.jsx';
 import { BankIcon, PlusIcon, SendIcon, UserIcon, ShieldIcon, LogoutIcon } from '../icons.jsx';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
-
-const CURRENCY_NAME = { AED: 'UAE Dirham', USD: 'US Dollar', INR: 'Indian Rupee', PKR: 'Pakistani Rupee', NGN: 'Nigerian Naira' };
-// flagcdn.com serves crisp real flag images at any size (an emoji flag
-// blown up to fill a card banner just looks pixelated) — ISO 3166-1
-// alpha-2 codes, not the currency codes above.
-const FLAG_COUNTRY = { AED: 'ae', USD: 'us', INR: 'in', PKR: 'pk', NGN: 'ng' };
-const flagImgFor = (currencyCode) => `https://flagcdn.com/w640/${FLAG_COUNTRY[currencyCode]}.png`;
 
 function greetingFor(date) {
   const h = date.getHours();

@@ -1,10 +1,9 @@
-import { HomeIcon, SendIcon, HistoryIcon, DevIcon, AdminIcon } from '../icons.jsx';
+import { HomeIcon, SendIcon, HistoryIcon, DevIcon } from '../icons.jsx';
 
 const TABS = [
   { key: 'home', label: 'Home', Icon: HomeIcon },
   { key: 'send', label: 'Send', Icon: SendIcon },
   { key: 'history', label: 'History', Icon: HistoryIcon },
-  { key: 'admin', label: 'Admin', Icon: AdminIcon },
   { key: 'developer', label: 'Developer', Icon: DevIcon },
 ];
 

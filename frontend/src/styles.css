@@ -1409,21 +1409,10 @@ code {
 
 /* ---------------------------------------------------------------- live conversion */
 
-.conversion-preview {
-  text-align: center;
-  margin-top: -14px;
-}
-
-.conversion-preview .receive {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--primary-dark);
-}
-
-.conversion-preview .rate-note {
-  font-size: 0.74rem;
-  color: var(--text-faint);
-  margin-top: 2px;
+.rate-note {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 /* ---------------------------------------------------------------- PIN */
@@ -1545,4 +1534,153 @@ code {
   padding: 5px 12px;
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+/* -------------------------------------------------------- send: rate chart */
+
+.rate-chart {
+  display: grid;
+  grid-template-columns: 1fr 56px;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rate-chart-svg {
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+  height: 78px;
+  overflow: visible;
+}
+
+.rate-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.rate-chart-line {
+  stroke: var(--success);
+  stroke-width: 1.75;
+}
+
+.rate-chart-dot {
+  fill: var(--success);
+}
+
+.rate-chart-yaxis {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rate-chart-xaxis {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+/* -------------------------------------------------------- send: amount pair */
+
+.convert-pair {
+  display: flex;
+  flex-direction: column;
+}
+
+.convert-pair-card {
+  background: var(--surface-alt);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.convert-pair-card.active {
+  background: var(--surface);
+  border-color: var(--primary);
+}
+
+.convert-pair-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.convert-pair-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.convert-pair-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.convert-pair-input:focus {
+  outline: none;
+}
+
+.convert-pair-amount {
+  flex: 1;
+  min-width: 0;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.convert-pair-currency {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.convert-flag {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: var(--shadow);
+}
+
+.convert-swap-btn {
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--bg);
+  background: var(--surface-alt);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin: -17px auto;
+  z-index: 1;
+  position: relative;
 }

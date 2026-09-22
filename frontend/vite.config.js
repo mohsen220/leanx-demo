@@ -10,7 +10,6 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         developer: resolve(__dirname, 'developer.html'),
-        admin: resolve(__dirname, 'admin.html'),
       },
     },
   },

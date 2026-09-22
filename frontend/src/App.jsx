@@ -335,17 +335,12 @@ export default function App() {
     setScreen('send');
   };
 
-  // The Developer and Admin tabs each open a full, separate desktop page
-  // rather than a cramped screen inside the phone. Developer reads the
-  // cross-tab SwiftX/Lean X log (logStore.js); Admin reads Meridian's own
-  // ledger (ledgerApi.js) — two different back-office audiences.
+  // The Developer tab opens a full, separate desktop page rather than a
+  // cramped screen inside the phone — it reads the cross-tab SwiftX/Lean X
+  // log (logStore.js), an engineering surface, not a customer one.
   const handleNavigate = (key) => {
     if (key === 'developer') {
       window.open('/developer.html', '_blank');
-      return;
-    }
-    if (key === 'admin') {
-      window.open('/admin.html', '_blank');
       return;
     }
     if (key === 'send') {

@@ -8,6 +8,8 @@ import { BankIcon, PlusIcon, SendIcon, UserIcon, ShieldIcon, LogoutIcon } from '
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
 
+const CURRENCY_NAME = { AED: 'UAE Dirham', USD: 'US Dollar', INR: 'Indian Rupee', PKR: 'Pakistani Rupee', NGN: 'Nigerian Naira' };
+
 function greetingFor(date) {
   const h = date.getHours();
   if (h < 12) return 'Good morning';
@@ -54,11 +56,11 @@ export function Home({
   const ngnRate = rateFor('NGA');
 
   const balanceEntries = [
-    { code: brand.homeCurrency, flag: '🇦🇪', amount: sender.balance, isBase: true },
-    { code: 'USD', flag: '🇺🇸', amount: homeCurrencyToUsd(sender.balance) },
-    inrRate != null && { code: 'INR', flag: tickerCorridorByCode.IND?.flag ?? '🇮🇳', amount: sender.balance * inrRate },
-    pkrRate != null && { code: 'PKR', flag: tickerCorridorByCode.PAK?.flag ?? '🇵🇰', amount: sender.balance * pkrRate },
-    ngnRate != null && { code: 'NGN', flag: tickerCorridorByCode.NGA?.flag ?? '🇳🇬', amount: sender.balance * ngnRate },
+    { code: brand.homeCurrency, name: CURRENCY_NAME[brand.homeCurrency] ?? brand.homeCurrency, flag: '🇦🇪', amount: sender.balance, isBase: true },
+    { code: 'USD', name: CURRENCY_NAME.USD, flag: '🇺🇸', amount: homeCurrencyToUsd(sender.balance) },
+    inrRate != null && { code: 'INR', name: CURRENCY_NAME.INR, flag: tickerCorridorByCode.IND?.flag ?? '🇮🇳', amount: sender.balance * inrRate },
+    pkrRate != null && { code: 'PKR', name: CURRENCY_NAME.PKR, flag: tickerCorridorByCode.PAK?.flag ?? '🇵🇰', amount: sender.balance * pkrRate },
+    ngnRate != null && { code: 'NGN', name: CURRENCY_NAME.NGN, flag: tickerCorridorByCode.NGA?.flag ?? '🇳🇬', amount: sender.balance * ngnRate },
   ].filter(Boolean);
 
   return (
@@ -117,6 +119,7 @@ export function Home({
         </div>
       </div>
 
+      <div className="section-title">Your balance</div>
       <BalanceCarousel entries={balanceEntries} />
 
       <div className="pill-actions">

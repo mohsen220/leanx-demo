@@ -1024,67 +1024,82 @@ code {
 
 .balance-track {
   display: flex;
+  gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  padding: 2px 2px 6px;
+  margin: -2px -2px -6px;
 }
 
 .balance-track::-webkit-scrollbar {
   display: none;
 }
 
-.balance-page {
-  flex: 0 0 100%;
-  scroll-snap-align: center;
-  text-align: center;
-  padding: 6px 0 2px;
+.balance-card {
+  flex: 0 0 76%;
+  scroll-snap-align: start;
+  background: var(--surface-alt);
+  border-radius: 22px;
+  padding: 18px;
+  min-height: 158px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
-.balance-page .label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.balance-card-flag {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  line-height: 1;
 }
 
-.balance-page .amount {
-  margin-top: 6px;
-  font-size: 2.6rem;
+.balance-card-amount {
+  font-size: 1.7rem;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
-.balance-page .amount .approx {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-faint);
-  margin-right: 4px;
-}
-
-.balance-page .currency-tag {
-  margin-top: 2px;
+.balance-card-name-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 3px;
+}
+
+.balance-card-name {
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
-.balance-page .currency-tag .flag {
-  font-size: 1rem;
+.balance-card-tag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 2px 7px;
+  border-radius: 999px;
 }
 
 .balance-dots {
   display: flex;
   justify-content: center;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 .balance-dot {

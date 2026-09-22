@@ -9,6 +9,11 @@ import { BankIcon, PlusIcon, SendIcon, UserIcon, ShieldIcon, LogoutIcon } from '
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
 
 const CURRENCY_NAME = { AED: 'UAE Dirham', USD: 'US Dollar', INR: 'Indian Rupee', PKR: 'Pakistani Rupee', NGN: 'Nigerian Naira' };
+// flagcdn.com serves crisp real flag images at any size (an emoji flag
+// blown up to fill a card banner just looks pixelated) — ISO 3166-1
+// alpha-2 codes, not the currency codes above.
+const FLAG_COUNTRY = { AED: 'ae', USD: 'us', INR: 'in', PKR: 'pk', NGN: 'ng' };
+const flagImgFor = (currencyCode) => `https://flagcdn.com/w640/${FLAG_COUNTRY[currencyCode]}.png`;
 
 function greetingFor(date) {
   const h = date.getHours();
@@ -56,11 +61,11 @@ export function Home({
   const ngnRate = rateFor('NGA');
 
   const balanceEntries = [
-    { code: brand.homeCurrency, name: CURRENCY_NAME[brand.homeCurrency] ?? brand.homeCurrency, flag: '🇦🇪', amount: sender.balance, isBase: true },
-    { code: 'USD', name: CURRENCY_NAME.USD, flag: '🇺🇸', amount: homeCurrencyToUsd(sender.balance) },
-    inrRate != null && { code: 'INR', name: CURRENCY_NAME.INR, flag: tickerCorridorByCode.IND?.flag ?? '🇮🇳', amount: sender.balance * inrRate },
-    pkrRate != null && { code: 'PKR', name: CURRENCY_NAME.PKR, flag: tickerCorridorByCode.PAK?.flag ?? '🇵🇰', amount: sender.balance * pkrRate },
-    ngnRate != null && { code: 'NGN', name: CURRENCY_NAME.NGN, flag: tickerCorridorByCode.NGA?.flag ?? '🇳🇬', amount: sender.balance * ngnRate },
+    { code: brand.homeCurrency, name: CURRENCY_NAME[brand.homeCurrency] ?? brand.homeCurrency, flagImg: flagImgFor(brand.homeCurrency), amount: sender.balance, isBase: true },
+    { code: 'USD', name: CURRENCY_NAME.USD, flagImg: flagImgFor('USD'), amount: homeCurrencyToUsd(sender.balance) },
+    inrRate != null && { code: 'INR', name: CURRENCY_NAME.INR, flagImg: flagImgFor('INR'), amount: sender.balance * inrRate },
+    pkrRate != null && { code: 'PKR', name: CURRENCY_NAME.PKR, flagImg: flagImgFor('PKR'), amount: sender.balance * pkrRate },
+    ngnRate != null && { code: 'NGN', name: CURRENCY_NAME.NGN, flagImg: flagImgFor('NGN'), amount: sender.balance * ngnRate },
   ].filter(Boolean);
 
   return (

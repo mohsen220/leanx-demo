@@ -1041,13 +1041,13 @@ code {
 .balance-card {
   flex: 0 0 78%;
   scroll-snap-align: center;
-  background: var(--surface-alt);
+  --card-surface: var(--surface-alt);
+  background: var(--card-surface);
   border-radius: 24px;
-  padding: 24px;
+  overflow: hidden;
   min-height: 190px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   transform: scale(0.88);
   opacity: 0.55;
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease, box-shadow 0.32s ease,
@@ -1055,37 +1055,45 @@ code {
 }
 
 .balance-card.active {
-  background: var(--surface);
+  --card-surface: var(--surface);
+  background: var(--card-surface);
   box-shadow: var(--shadow);
   transform: scale(1);
   opacity: 1;
 }
 
-.balance-card-flag {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.85rem;
-  line-height: 1;
-  transition: background-color 0.32s ease, box-shadow 0.32s ease;
+/* The flag fills the top of the card like a little travel-card banner,
+   fading into the card's own surface color at the bottom edge rather than
+   cutting off hard — a real flag image (not an emoji scaled way up, which
+   just looks pixelated) so it stays crisp at this size. */
+.balance-card-banner {
+  position: relative;
+  height: 100px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
 }
 
-.balance-card.active .balance-card-flag {
-  background: var(--surface-alt);
-  box-shadow: none;
+.balance-card-banner::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 65%;
+  background: linear-gradient(to bottom, transparent, var(--card-surface));
+}
+
+.balance-card-body {
+  padding: 10px 22px 22px;
 }
 
 .balance-card-amount {
-  font-size: 2.1rem;
+  font-size: 34px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .balance-card-name-row {

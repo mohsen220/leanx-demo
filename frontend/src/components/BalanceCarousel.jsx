@@ -1,6 +1,43 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
+
+const AMOUNT_MAX_PX = 34;
+// A last-resort safety net, not a target — NGN balances routinely render as
+// 13-character strings ("1,354,294.76") that need to go well below a
+// "still looks like a balance" size to physically fit. Better small and
+// whole than clipped.
+const AMOUNT_MIN_PX = 13;
+
+// The card is narrow and amounts range from "0" to something like
+// "1,354,294.76" (NGN) — a fixed font-size that looks great for a short
+// number silently overflows a long one. Measures once and scales the
+// font-size proportionally to exactly what's needed to fit, same trick
+// iOS Wallet uses for balance text — clientWidth stays constant as
+// font-size drops since the element is block-level and sized by its
+// parent, not its content, so a single ratio (rather than a decrement
+// loop) gets there directly.
+function BalanceAmount({ text }) {
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.fontSize = `${AMOUNT_MAX_PX}px`;
+    const available = el.clientWidth;
+    const needed = el.scrollWidth;
+    if (available > 0 && needed > available) {
+      const fitted = Math.max(AMOUNT_MIN_PX, Math.floor((AMOUNT_MAX_PX * available) / needed));
+      el.style.fontSize = `${fitted}px`;
+    }
+  }, [text]);
+
+  return (
+    <div className="balance-card-amount" ref={ref}>
+      {text}
+    </div>
+  );
+}
 
 // A swipeable multi-currency balance switcher, styled as a real centered
 // carousel: the active card sits front-and-center at full size on a white,
@@ -48,9 +85,9 @@ export function BalanceCarousel({ entries }) {
             key={e.code}
             ref={(el) => (cardRefs.current[i] = el)}
           >
-            <div className="balance-card-flag">{e.flag}</div>
+            <div className="balance-card-banner" style={{ backgroundImage: `url(${e.flagImg})` }} />
             <div className="balance-card-body">
-              <div className="balance-card-amount">{fmt(e.amount)}</div>
+              <BalanceAmount text={fmt(e.amount)} />
               <div className="balance-card-name-row">
                 <span className="balance-card-name">{e.name}</span>
                 {!e.isBase && <span className="balance-card-tag">Converted</span>}

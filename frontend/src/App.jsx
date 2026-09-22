@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
 import { ledgerApi } from './ledgerApi.js';
 import { leanAofApi } from './leanAofApi.js';
 import { logSdkEvent } from './logStore.js';
+import { getTrackers, subscribeInflight, dismissTracker } from './inflightStore.js';
 import { getActiveUserId, setActiveUserId, clearActiveUserId } from './stores.js';
 import { BottomNav } from './components/BottomNav.jsx';
+import { InFlightBanner } from './components/InFlightBanner.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
 import { Home } from './screens/Home.jsx';
 import { SendFlow } from './screens/SendFlow.jsx';
@@ -99,8 +101,11 @@ export default function App() {
   const [sender, setSender] = useState(null);
   const [recipients, setRecipients] = useState(null);
   const [sendTo, setSendTo] = useState(null); // recipient pre-selected from "Send again"
+  const [resumeTrackerId, setResumeTrackerId] = useState(null); // tapped back into a backgrounded transfer
   const [recentPayments, setRecentPayments] = useState([]);
   const [error, setError] = useState(null);
+  const [inflight, setInflight] = useState(() => getTrackers());
+  useEffect(() => subscribeInflight(setInflight), []);
   const [historyKey, setHistoryKey] = useState(0);
   const [statusTime, setStatusTime] = useState(() => formatStatusTime(new Date()));
   // Set once, right after a real bank redirect reloads the whole app —
@@ -287,6 +292,26 @@ export default function App() {
 
   const refreshSender = () => ledgerApi.getUser(userId).then(setSender).catch(() => {});
 
+  // Fires the same balance/history/recipient refresh a watched-live transfer
+  // always got, but keyed off the tracker itself finishing — so a transfer
+  // the customer backgrounded and never came back to watch still updates
+  // the balance and history the moment it actually settles, not only when
+  // someone happens to be looking at TrackStatus. `refreshedIds` guards
+  // against re-firing on every unrelated inflight-store update once a given
+  // tracker's completion has already been handled.
+  const refreshedIds = useRef(new Set());
+  useEffect(() => {
+    for (const t of inflight) {
+      if (t.completed && !refreshedIds.current.has(t.id)) {
+        refreshedIds.current.add(t.id);
+        refreshSender();
+        setHistoryKey((k) => k + 1);
+        if (t.status === 'succeeded' && t.recipient) upsertRecipient({ ...t.recipient, lastSentAt: Date.now() });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inflight]);
+
   const onTopupComplete = () => {
     refreshSender(); // credited server-side once the bank authorization settled
     setHistoryKey((k) => k + 1);
@@ -294,15 +319,18 @@ export default function App() {
     setScreen('home');
   };
 
-  const onPaymentComplete = (_payment, recipient) => {
-    setHistoryKey((k) => k + 1);
-    refreshSender(); // the balance was already debited server-side on submission
-    if (recipient) upsertRecipient({ ...recipient, lastSentAt: Date.now() });
+  // Only navigation + acknowledgment left to do here — the balance/history/
+  // recipient refresh above already happened as soon as the transfer
+  // actually finished, whether or not anyone was watching.
+  const onPaymentComplete = (finalTracker) => {
+    dismissTracker(finalTracker.id);
     setSendTo(null);
+    setResumeTrackerId(null);
     setScreen('home');
   };
 
   const startSend = (recipient) => {
+    setResumeTrackerId(null);
     setSendTo(recipient ?? null);
     setScreen('send');
   };
@@ -355,6 +383,16 @@ export default function App() {
               </div>
             )}
 
+            {ready && screen !== 'send' && (
+              <InFlightBanner
+                trackers={inflight}
+                onResume={(id) => {
+                  setResumeTrackerId(id);
+                  setScreen('send');
+                }}
+              />
+            )}
+
             {!userId && <Onboarding onCreated={onOnboarded} setError={setError} />}
 
             {userId && !ready && (
@@ -401,10 +439,12 @@ export default function App() {
                 recipients={visibleRecipients}
                 sender={sender}
                 initialRecipient={sendTo}
+                resumeTrackerId={resumeTrackerId}
                 onRecipientSaved={upsertRecipient}
                 setError={setError}
                 onExit={() => {
                   setSendTo(null);
+                  setResumeTrackerId(null);
                   setScreen('home');
                 }}
                 onPaymentComplete={onPaymentComplete}

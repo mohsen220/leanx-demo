@@ -5,6 +5,7 @@ import { BeneficiaryDetails } from './send/BeneficiaryDetails.jsx';
 import { EnterAmount } from './send/EnterAmount.jsx';
 import { ReviewAndSend } from './send/ReviewAndSend.jsx';
 import { TrackStatus } from './send/TrackStatus.jsx';
+import { startTracking } from '../inflightStore.js';
 
 // Recipient-first, the way real remittance apps work: pick who you're paying
 // (which fixes the corridor), then how much, then confirm. Adding someone new
@@ -13,15 +14,25 @@ import { TrackStatus } from './send/TrackStatus.jsx';
 //
 // Quote → payment stay adjacent (the quote is single-use and expires), which
 // this ordering guarantees.
-export function SendFlow({ corridors, recipients, sender, initialRecipient, onRecipientSaved, setError, onExit, onPaymentComplete }) {
+export function SendFlow({
+  corridors,
+  recipients,
+  sender,
+  initialRecipient,
+  resumeTrackerId,
+  onRecipientSaved,
+  setError,
+  onExit,
+  onPaymentComplete,
+}) {
   const corridorByCode = Object.fromEntries(corridors.map((c) => [c.code, c]));
 
-  const [step, setStep] = useState(initialRecipient ? 'amount' : 'recipient');
+  const [step, setStep] = useState(resumeTrackerId ? 'status' : initialRecipient ? 'amount' : 'recipient');
   const [recipient, setRecipient] = useState(initialRecipient ?? null);
   const [corridor, setCorridor] = useState(initialRecipient ? corridorByCode[initialRecipient.corridorCode] : null);
   const [quote, setQuote] = useState(null);
   const [purpose, setPurpose] = useState(null);
-  const [payment, setPayment] = useState(null);
+  const [payment, setPayment] = useState(resumeTrackerId ? { id: resumeTrackerId } : null);
   // One id per attempt, so every call this flow makes (quote, validate,
   // payment, status polls) is grouped together in the Developer Console.
   const [flowId] = useState(() => crypto.randomUUID());
@@ -109,6 +120,23 @@ export function SendFlow({ corridors, recipients, sender, initialRecipient, onRe
         setError={setError}
         onBack={() => setStep('amount')}
         onSent={(p) => {
+          // A full, durable snapshot of everything TrackStatus needs to
+          // render — stored so tracking survives leaving this screen (or
+          // reloading) and a resumed TrackStatus needs nothing but the id.
+          startTracking({
+            id: p.id,
+            flowId,
+            corridor,
+            recipient,
+            quote,
+            purpose,
+            status: p.status,
+            amount: p.amount,
+            amountCurrency: p.amount_currency,
+            bankReference: p.bank_reference,
+            transactionCompleted: p.transaction_completed,
+            createdAt: p.created,
+          });
           setPayment(p);
           setStep('status');
         }}
@@ -117,16 +145,5 @@ export function SendFlow({ corridors, recipients, sender, initialRecipient, onRe
   }
 
   // step === 'status'
-  return (
-    <TrackStatus
-      corridor={corridor}
-      recipient={recipient}
-      quote={quote}
-      purpose={purpose}
-      payment={payment}
-      flowId={flowId}
-      setError={setError}
-      onDone={(finalPayment) => onPaymentComplete(finalPayment, recipient)}
-    />
-  );
+  return <TrackStatus trackerId={payment.id} onLeave={onExit} onDone={onPaymentComplete} />;
 }

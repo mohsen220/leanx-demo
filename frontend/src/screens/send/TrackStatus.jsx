@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { api } from '../../api.js';
+import { useEffect, useState } from 'react';
 import { brand } from '../../brand.js';
 import { CheckIcon, ClockIcon, XIcon } from '../../icons.jsx';
+import { getTracker, subscribeInflight } from '../../inflightStore.js';
 
 const STEPS = [
   { key: 'queued', label: 'Sent', sub: `Received by ${brand.shortName}` },
@@ -24,61 +24,46 @@ const STEP_INDEX = {
   reversed: 2,
 };
 const FAILED_STATUSES = ['failed', 'rejected', 'unknown', 'canceled'];
-const TERMINAL = ['succeeded', 'failed', 'rejected', 'unknown', 'canceled', 'reversed'];
 
 const fmt = (n, max = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: max });
 
-export function TrackStatus({ corridor, recipient, quote, purpose, payment, flowId, setError, onDone }) {
-  const [current, setCurrent] = useState(payment);
-  // Anchor on the API's own `created` timestamp, not component mount time, so
-  // the "delivered in" figure is the real server-side duration and survives a
-  // re-render/remount mid-flight.
-  const startRef = useRef(payment.created ? new Date(payment.created).getTime() : Date.now());
+// Reads everything from the shared inflightStore tracker rather than props —
+// polling itself lives there now, independent of this component's own
+// lifecycle, so leaving this screen (or reloading the page) doesn't kill an
+// in-flight transfer. `trackerId` is the only thing this component actually
+// needs from its parent; a resumed tracker (tapped back into from the
+// in-flight banner elsewhere in the app) works identically to a freshly
+// started one.
+export function TrackStatus({ trackerId, onDone, onLeave }) {
+  const [tracker, setTracker] = useState(() => getTracker(trackerId));
+
+  useEffect(() => subscribeInflight(() => setTracker(getTracker(trackerId))), [trackerId]);
+
   const [elapsedMs, setElapsedMs] = useState(0);
-
   useEffect(() => {
-    let cancelled = false;
-    let attempt = 0;
-    // Quick polls while the payment is fresh (most mock/sandbox transitions
-    // land in the first seconds), then back off so a slow sandbox isn't
-    // hammered — it's a shared environment behind a WAF.
-    const delayFor = (n) => (n < 5 ? 1200 : n < 15 ? 3000 : 6000);
-    const poll = async () => {
-      try {
-        const data = await api.getPayment(payment.id, corridor.code, flowId);
-        if (cancelled) return;
-        setCurrent(data);
-        if (!TERMINAL.includes(data.status)) setTimeout(poll, delayFor(attempt++));
-      } catch (err) {
-        if (!cancelled) setError(err.message);
-      }
-    };
-    poll();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (TERMINAL.includes(current.status)) return;
-    const t = setInterval(() => setElapsedMs(Date.now() - startRef.current), 200);
+    if (!tracker || tracker.completed) return;
+    const start = tracker.createdAt ? new Date(tracker.createdAt).getTime() : Date.now();
+    const t = setInterval(() => setElapsedMs(Date.now() - start), 200);
     return () => clearInterval(t);
-  }, [current.status]);
+  }, [tracker?.completed, tracker?.createdAt]);
 
-  const activeIndex = STEP_INDEX[current.status] ?? 0;
-  const succeeded = current.status === 'succeeded';
-  const failed = FAILED_STATUSES.includes(current.status);
+  if (!tracker) return null;
 
-  const elapsedSeconds = current.transaction_completed
-    ? Math.max(0, (new Date(current.transaction_completed) - startRef.current) / 1000)
+  const { corridor, recipient, quote, purpose } = tracker;
+  const activeIndex = STEP_INDEX[tracker.status] ?? 0;
+  const succeeded = tracker.status === 'succeeded';
+  const failed = FAILED_STATUSES.includes(tracker.status);
+
+  const startTime = tracker.createdAt ? new Date(tracker.createdAt).getTime() : Date.now();
+  const elapsedSeconds = tracker.transactionCompleted
+    ? Math.max(0, (new Date(tracker.transactionCompleted) - startTime) / 1000)
     : elapsedMs / 1000;
   const elapsedLabel = elapsedSeconds >= 90 ? `${Math.round(elapsedSeconds / 60)} min` : `${elapsedSeconds.toFixed(1)}s`;
 
   const account = recipient.details.beneficiary_account_number ?? '';
   // Customers get a short reference on the receipt; the full payment id is in
   // the Developer Console and the History screen's detail.
-  const shortRef = `${brand.initials}-${String(current.id).replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+  const shortRef = `${brand.initials}-${String(tracker.id).replace(/-/g, '').slice(0, 10).toUpperCase()}`;
 
   return (
     <div className="phone-screen">
@@ -89,7 +74,7 @@ export function TrackStatus({ corridor, recipient, quote, purpose, payment, flow
       {!succeeded && (
         <div className="timeline">
           {STEPS.map((step, i) => {
-            const done = failed ? i < activeIndex : i < activeIndex;
+            const done = i < activeIndex;
             const active = !failed && i === activeIndex;
             const isFailedHere = failed && i === activeIndex;
             const isLast = i === STEPS.length - 1;
@@ -111,6 +96,12 @@ export function TrackStatus({ corridor, recipient, quote, purpose, payment, flow
         </div>
       )}
 
+      {!succeeded && !failed && (
+        <button className="btn btn-secondary" onClick={onLeave}>
+          Back to Home — we'll keep watching this for you
+        </button>
+      )}
+
       {succeeded && (
         <>
           <div className="receipt">
@@ -120,7 +111,7 @@ export function TrackStatus({ corridor, recipient, quote, purpose, payment, flow
                 <CheckIcon width={14} height={14} /> Delivered in {elapsedLabel}
               </span>
               <div className="amount-big">
-                {fmt(current.amount ?? quote.amount_destination)} {current.amount_currency ?? corridor.currency}
+                {fmt(tracker.amount ?? quote.amount_destination)} {tracker.amountCurrency ?? corridor.currency}
               </div>
               <div className="muted">to {recipient.name}</div>
             </div>
@@ -149,17 +140,17 @@ export function TrackStatus({ corridor, recipient, quote, purpose, payment, flow
             </div>
             <div className="receipt-row">
               <span className="k">Reference</span>
-              <span className="v mono" title={current.id}>
+              <span className="v mono" title={tracker.id}>
                 {shortRef}
               </span>
             </div>
             <div className="receipt-row">
               <span className="k">Bank UTR</span>
-              <span className="v mono">{current.bank_reference ?? 'Pending'}</span>
+              <span className="v mono">{tracker.bankReference ?? 'Pending'}</span>
             </div>
             <div className="receipt-row">
               <span className="k">Date</span>
-              <span className="v">{new Date(current.transaction_completed ?? Date.now()).toLocaleString()}</span>
+              <span className="v">{new Date(tracker.transactionCompleted ?? Date.now()).toLocaleString()}</span>
             </div>
 
             <div className="receipt-foot">
@@ -169,7 +160,7 @@ export function TrackStatus({ corridor, recipient, quote, purpose, payment, flow
             </div>
           </div>
 
-          <button className="btn btn-primary" onClick={() => onDone(current)}>
+          <button className="btn btn-primary" onClick={() => onDone(tracker)}>
             Done
           </button>
         </>
@@ -178,10 +169,10 @@ export function TrackStatus({ corridor, recipient, quote, purpose, payment, flow
       {failed && (
         <>
           <div className="error-banner">
-            This transfer could not be completed ({current.status}). You have not been charged. Reference:{' '}
-            <code>{current.id}</code>
+            This transfer could not be completed ({tracker.status}). You have not been charged. Reference:{' '}
+            <code>{tracker.id}</code>
           </div>
-          <button className="btn btn-secondary" onClick={() => onDone(current)}>
+          <button className="btn btn-secondary" onClick={() => onDone(tracker)}>
             Back to home
           </button>
         </>

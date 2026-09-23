@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { brand, indicativeRate } from '../../brand.js';
-import { flagImgFor } from '../../currencies.js';
+import { flagIconFor } from '../../currencies.js';
 import { PURPOSES } from '../../stores.js';
 import { getCachedRate, setCachedRate } from '../../rateStore.js';
 import { FitText } from '../../components/FitText.jsx';
@@ -181,7 +181,7 @@ export function EnterAmount({ corridor, recipient, balance, flowId, setError, on
               <FitText className="convert-pair-amount" text={fmt(sendAmount)} max={28} min={16} />
             )}
             <div className="convert-pair-currency">
-              <img className="convert-flag" src={flagImgFor(currency)} alt="" />
+              <img className="convert-flag" src={flagIconFor(currency)} alt="" />
               <span>{currency}</span>
             </div>
           </div>
@@ -206,7 +206,7 @@ export function EnterAmount({ corridor, recipient, balance, flowId, setError, on
               <FitText className="convert-pair-amount" text={fmt(receiveAmount)} max={28} min={16} />
             )}
             <div className="convert-pair-currency">
-              <img className="convert-flag" src={flagImgFor(corridor.currency)} alt="" />
+              <img className="convert-flag" src={flagIconFor(corridor.currency)} alt="" />
               <span>{corridor.currency}</span>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { brand, indicativeRate, homeCurrencyToUsd } from '../brand.js';
-import { CURRENCY_NAME, flagImgFor } from '../currencies.js';
+import { CURRENCY_NAME, flagBannerFor } from '../currencies.js';
 import { initials, avatarColor, STATUS_LABEL } from '../stores.js';
 import { getCachedRate } from '../rateStore.js';
 import { TickerStrip } from '../components/TickerStrip.jsx';
@@ -55,11 +55,11 @@ export function Home({
   const ngnRate = rateFor('NGA');
 
   const balanceEntries = [
-    { code: brand.homeCurrency, name: CURRENCY_NAME[brand.homeCurrency] ?? brand.homeCurrency, flagImg: flagImgFor(brand.homeCurrency), amount: sender.balance, isBase: true },
-    { code: 'USD', name: CURRENCY_NAME.USD, flagImg: flagImgFor('USD'), amount: homeCurrencyToUsd(sender.balance) },
-    inrRate != null && { code: 'INR', name: CURRENCY_NAME.INR, flagImg: flagImgFor('INR'), amount: sender.balance * inrRate },
-    pkrRate != null && { code: 'PKR', name: CURRENCY_NAME.PKR, flagImg: flagImgFor('PKR'), amount: sender.balance * pkrRate },
-    ngnRate != null && { code: 'NGN', name: CURRENCY_NAME.NGN, flagImg: flagImgFor('NGN'), amount: sender.balance * ngnRate },
+    { code: brand.homeCurrency, name: CURRENCY_NAME[brand.homeCurrency] ?? brand.homeCurrency, flagImg: flagBannerFor(brand.homeCurrency), amount: sender.balance, isBase: true },
+    { code: 'USD', name: CURRENCY_NAME.USD, flagImg: flagBannerFor('USD'), amount: homeCurrencyToUsd(sender.balance) },
+    inrRate != null && { code: 'INR', name: CURRENCY_NAME.INR, flagImg: flagBannerFor('INR'), amount: sender.balance * inrRate },
+    pkrRate != null && { code: 'PKR', name: CURRENCY_NAME.PKR, flagImg: flagBannerFor('PKR'), amount: sender.balance * pkrRate },
+    ngnRate != null && { code: 'NGN', name: CURRENCY_NAME.NGN, flagImg: flagBannerFor('NGN'), amount: sender.balance * ngnRate },
   ].filter(Boolean);
 
   return (

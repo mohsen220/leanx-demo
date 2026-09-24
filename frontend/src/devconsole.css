@@ -1134,7 +1134,7 @@ body:has(#root > .dc-root) {
 
 .dc-field-guide {
   margin-top: 14px;
-  padding: 12px 14px;
+  padding: 4px 14px 4px;
   background: var(--dc-accent-soft);
   border: 1px solid var(--dc-border);
   border-radius: 8px;
@@ -1146,15 +1146,18 @@ body:has(#root > .dc-root) {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--dc-accent);
-  margin-bottom: 8px;
+  margin: 12px 0 10px;
 }
 
+/* A real Lean response can carry 15-20+ fields, some with names like
+   max_cumulative_number_of_payments_per_period — a fixed-width label
+   column (the old layout) either wraps those into a cramped mess or
+   overflows. Stacking the name above its own description scales to any
+   name length and reads more like a definition list than a squeezed
+   table. */
 .dc-field-guide-row {
-  display: grid;
-  grid-template-columns: 130px 1fr;
-  gap: 10px;
-  padding: 5px 0;
-  border-top: 1px solid rgba(23, 27, 34, 0.06);
+  padding: 10px 0;
+  border-top: 1px solid rgba(23, 27, 34, 0.08);
 }
 
 .dc-field-guide-row:first-of-type {
@@ -1162,15 +1165,18 @@ body:has(#root > .dc-root) {
 }
 
 .dc-field-guide-row code {
+  display: block;
   font-family: var(--dc-mono);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: var(--dc-text);
-  align-self: start;
+  color: var(--dc-accent);
+  margin-bottom: 4px;
+  overflow-wrap: break-word;
 }
 
 .dc-field-guide-row span {
-  font-size: 0.76rem;
-  line-height: 1.5;
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.55;
   color: var(--dc-text-muted);
 }
